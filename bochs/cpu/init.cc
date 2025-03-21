@@ -76,7 +76,10 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
 
   stats = NULL;
 
-  srand(time(NULL)); // initialize random generator for RDRAND/RDSEED
+//#ifdef QEMU_CFG_FW
+  srand(0x12345678);
+  //srand(time(NULL)); // initialize random generator for RDRAND/RDSEED
+//#endif
 }
 
 enum {

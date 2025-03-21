@@ -72,14 +72,15 @@
 # "cmdmode"     - call a headerbar button handler after pressing F7 (sdl, sdl2,
 #                 win32, x)
 # "fullscreen"  - startup in fullscreen mode (sdl, sdl2)
+# "gui_debug"   - use GTK debugger gui (sdl, sdl2, x) / Win32 debugger gui (sdl,
+#                 sdl2, win32). When using the "globalini" extension the
+#                 debugger uses ini file from BXSHARE path (see below).
 # "hideIPS"     - disable IPS output in status bar (rfb, sdl, sdl2, term, vncsrv,
 #                 win32, wx, x)
 # "nokeyrepeat" - turn off host keyboard repeat (sdl, sdl2, win32, x)
 # "no_gui_console" - use system console instead of builtin gui console
 #                    (rfb, sdl, sdl2, vncsrv, x)
 # "timeout"     - time (in seconds) to wait for client (rfb, vncsrv)
-# "gui_debug"   - This option is DEPRECATED, use command line option '-dbg_gui'
-#                 instead. It also supports the 'globalini' extension
 #
 # See the examples below for other currently supported options.
 # Setting up options without specifying display library is also supported.
@@ -100,7 +101,7 @@
 #                 on desktop window size
 #display_library: win32, options="traphotkeys, autoscale"
 #display_library: wx
-#display_library: x
+#display_library: x, options="gui_debug:globalini"
 
 #=======================================================================
 # CPU:
@@ -119,7 +120,6 @@
 #  pentium                    Intel Pentium (P54C)
 #  pentium_mmx                Intel Pentium MMX
 #  amd_k6_2_chomper           AMD-K6(tm) 3D processor (Chomper)
-#  athlon_xp                  AMD Athlon(tm) XP Processor
 #  p2_klamath                 Intel Pentium II (Klamath)
 #  p3_katmai                  Intel Pentium III (Katmai)
 #  p4_willamette              Intel(R) Pentium(R) 4 (Willamette)
@@ -217,9 +217,12 @@
 #  2.2.6 2.6Ghz Intel Core 2 Duo with WinXP/g++ 3.4       21 to 25 Mips
 #  2.2.6 2.1Ghz Athlon XP with Linux 2.6/g++ 3.4          12 to 15 Mips
 #=======================================================================
-cpu: model=core2_penryn_t9600, count=1, ips=50000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
-cpu: cpuid_limit_winnt=0
+#cpu: model=core2_penryn_t9600, count=1, ips=100000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
+#cpu: cpuid_limit_winnt=0
+#cpu: count=1, ips=100000000, model=corei7_icelake_u, reset_on_triple_fault=0, cpuid_limit_winnt=0, ignore_bad_msrs=1, mwait_is_nop=0
+cpu: count=1, ips=100000000, model=corei7_skylake_x, reset_on_triple_fault=0, cpuid_limit_winnt=0, ignore_bad_msrs=1, mwait_is_nop=0
 
+#corei7_sandy_bridge_2600k
 #=======================================================================
 # MEMORY
 # Set the amount of physical memory you want to emulate.
@@ -243,8 +246,9 @@ cpu: cpuid_limit_winnt=0
 # Default memory block size is 128K.
 #
 #=======================================================================
-memory: guest=512, host=256, block_size=512
-
+#memory: guest=512, host=256, block_size=512
+#memory: host=2048, guest=2048
+memory: guest=6144, host=6144, block_size=2048
 #=======================================================================
 # ROMIMAGE:
 # The ROM BIOS controls what the PC does when it first powers on.
@@ -274,13 +278,11 @@ memory: guest=512, host=256, block_size=512
 #
 # Please note that if you use the BIOS-bochs-legacy romimage BIOS option,
 # you cannot use a PCI enabled VGA ROM BIOS.
-# Please note that if you use a SeaBIOS binary in romimage BIOS option,
-# you must use a PCI enabled VGA ROM BIOS.
 #=======================================================================
-romimage: file=$BXSHARE/BIOS-bochs-latest, options=fastboot
+#romimage: file=$BXSHARE/BIOS-bochs-latest, options=fastboot
+romimage: file=bios/OVMF.fd
 #romimage: file=$BXSHARE/BIOS-bochs-legacy
 #romimage: file=$BXSHARE/bios.bin-1.13.0 # http://www.seabios.org/SeaBIOS
-#romimage: file=$BXSHARE/i440fx.bin, flash_data=escd.bin
 #romimage: file=asus_p6np5.bin, flash_data=escd.bin
 #romimage: file=mybios.bin, address=0xfff80000 # 512k at memory top
 
@@ -291,7 +293,7 @@ romimage: file=$BXSHARE/BIOS-bochs-latest, options=fastboot
 # you cannot use a PCI enabled VGA ROM BIOS option such as the cirrus
 # option shown below.
 #=======================================================================
-vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest.bin
+vgaromimage: file=bios/VGABIOS-lgpl-latest.bin
 #vgaromimage: file=bios/VGABIOS-lgpl-latest-cirrus.bin
 #vgaromimage: file=$BXSHARE/vgabios-cirrus.bin-1.13.0 # http://www.seabios.org/SeaVGABIOS
 #vgaromimage: file=bios/VGABIOS-elpin-2.40
@@ -353,7 +355,8 @@ vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest.bin
 # Examples:
 #   vga: extension=cirrus, update_freq=10, ddc=builtin
 #=======================================================================
-#vga: extension=vbe, update_freq=5, realtime=1, ddc=file:monitor.bin
+vga: extension=vbe, vbe_memsize=16, update_freq=60, realtime=0
+#vga:  update_freq=60, realtime=0
 
 #=======================================================================
 # VOODOO:
@@ -485,7 +488,7 @@ mouse: enabled=0
 # Example:
 #   pci: enabled=1, chipset=i440fx, slot1=pcivga, slot2=ne2k, advopts=noacpi
 #=======================================================================
-pci: enabled=1, chipset=i440fx
+pci: enabled=1, chipset=i440fx, slot1=pcivga
 
 #=======================================================================
 # CLOCK:
@@ -527,7 +530,8 @@ pci: enabled=1, chipset=i440fx
 #
 # Default value are sync=none, rtc_sync=0, time0=local
 #=======================================================================
-#clock: sync=none, time0=local
+clock: sync=none, time0=10000, rtc_sync=0
+#, clock_sync=none
 
 #=======================================================================
 # CMOSIMAGE:
@@ -583,7 +587,7 @@ private_colormap: enabled=0
 # The optional parameter 'write_protected' can be used to control the media
 # write protect switch. By default it is turned off.
 #=======================================================================
-floppya: 1_44=/dev/fd0, status=inserted
+#floppya: 1_44=/dev/fd0, status=inserted
 #floppya: image=../1.44, status=inserted
 #floppya: 1_44=/dev/fd0H1440, status=inserted
 #floppya: 1_2=../1_2, status=inserted
@@ -616,9 +620,9 @@ floppya: 1_44=/dev/fd0, status=inserted
 #   ata3: enabled=1, ioaddr1=0x168, ioaddr2=0x360, irq=9
 #=======================================================================
 ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
-ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
-ata2: enabled=0, ioaddr1=0x1e8, ioaddr2=0x3e0, irq=11
-ata3: enabled=0, ioaddr1=0x168, ioaddr2=0x360, irq=9
+#ata1: enabled=1, ioaddr1=0x170, ioaddr2=0x370, irq=15
+#ata2: enabled=0, ioaddr1=0x1e8, ioaddr2=0x3e0, irq=11
+#ata3: enabled=0, ioaddr1=0x168, ioaddr2=0x360, irq=9
 
 #=======================================================================
 # ATA[0-3]-MASTER, ATA[0-3]-SLAVE
@@ -670,7 +674,11 @@ ata3: enabled=0, ioaddr1=0x168, ioaddr2=0x360, irq=9
 #   ata3-master: type=disk, mode=flat, path=483M.sample, cylinders=1024, heads=15, spt=63
 #   ata3-slave:  type=cdrom, path=iso.sample, status=inserted
 #=======================================================================
-ata0-master: type=disk, mode=flat, path="30M.sample"
+ata0-master: type=disk, path="c.vhd", mode=dll
+#ata0-master: type=cdrom, path="d.iso", status=inserted
+
+#ata0-master: type=disk, path="E:\VM\Windows10_19h1_uefi_empty.vhd", mode=dll
+#ata0-master: type=disk, mode=flat, path="30M.sample"
 #ata0-master: type=disk, mode=flat, path="30M.sample", cylinders=615, heads=6, spt=17
 #ata0-master: type=disk, mode=flat, path="c.img", cylinders=0 # autodetect
 #ata0-slave: type=disk, mode=vvfat, path=/bochs/images/vvfat, journal=vvfat.redolog
@@ -684,11 +692,10 @@ ata0-master: type=disk, mode=flat, path="30M.sample"
 # This defines the boot sequence. Now you can specify up to 3 boot drives,
 # which can be 'floppy', 'disk', 'cdrom' or 'network' (boot ROM).
 # Legacy 'a' and 'c' are also supported.
-# The new boot choice 'usb' is only supported by the i440fx.bin BIOS.
 # Examples:
 #   boot: floppy
 #   boot: cdrom, disk
-#   boot: network, usb, disk
+#   boot: network, disk
 #   boot: cdrom, floppy, disk
 #=======================================================================
 #boot: floppy
@@ -702,7 +709,7 @@ boot: disk
 #   floppy_bootsig_check: disabled=0
 #   floppy_bootsig_check: disabled=1
 #=======================================================================
-floppy_bootsig_check: disabled=0
+#floppy_bootsig_check: disabled=0
 
 #=======================================================================
 # LOG:
@@ -829,7 +836,7 @@ debugger_log: -
 #   parport2: enabled=1, file="/dev/lp0"
 #   parport1: enabled=0
 #=======================================================================
-parport1: enabled=1, file="parport.out"
+#parport1: enabled=1, file="parport.out"
 
 #=======================================================================
 # SOUND:
@@ -867,7 +874,7 @@ parport1: enabled=1, file="parport.out"
 # Example for different drivers:
 #   sound: waveoutdrv=sdl, waveindrv=alsa, midioutdrv=dummy
 #=======================================================================
-sound: driver=default, waveout=/dev/dsp. wavein=, midiout=
+#sound: driver=default, waveout=/dev/dsp. wavein=, midiout=
 
 #=======================================================================
 # SPEAKER:
@@ -879,7 +886,7 @@ sound: driver=default, waveout=/dev/dsp. wavein=, midiout=
 # the Beep() function. The 'gui' mode forwards the beep to the related
 # gui methods (currently only used by the Carbon gui).
 #=======================================================================
-speaker: enabled=1, mode=sound, volume=15
+#speaker: enabled=1, mode=sound, volume=15
 
 #=======================================================================
 # SB16:
@@ -1107,7 +1114,7 @@ speaker: enabled=1, mode=sound, volume=15
 #usb_uhci: port2=disk, options2="path:undoable:usbdisk.img, journal:u.redolog"
 #usb_uhci: port2=disk, options2=""path:usbdisk2.img, sect_size:1024"
 #usb_uhci: port2=disk, options2="path:vvfat:vvfat, debug, speed:full"
-#usb_uhci: port2=cdrom, options2="path:image.iso"
+#usb_uhci: port2=cdrom, options2="d.iso"
 #usb_uhci: port1=printer, options1="file:printdata.bin"
 #usb_uhci: port2=floppy, options2="path:vvfat:diskette, model:teac"
 
@@ -1173,15 +1180,14 @@ speaker: enabled=1, mode=sound, volume=15
 # Triggers:
 #   reset:       will break and load the debugger on a port reset
 #   enable:      will break and load the debugger on a port enable
-#   doorbell:    will break and load the debugger a xHCI Command Ring addition
-#   event:       will break and load the debugger on a xHCI Event Ring addition
-#   data:        will break and load the debugger on a xHCI Data Ring addition
 #   start_frame: will break and load the debugger on start of frame
 #                  (this is different for each controller type)
+#   doorbell:    will break and load the debugger a xHCI Command Ring addition
+#   event:       will break and load the debugger on a xHCI Event Ring addition
 #   non_exist:   will break and load the debugger on a non-existant port access
 # (experimental and is under development)
 #=======================================================================
-#usb_debug: type=xhci, reset=1, enable=1, start_frame=1, doorbell=1, event=1, data=1, non_exist=1
+#usb_debug: type=xhci, reset=1, enable=1, start_frame=1, doorbell=1, event=1, non_exist=1
 
 #=======================================================================
 # PCIDEV:
@@ -1196,7 +1202,7 @@ speaker: enabled=1, mode=sound, volume=15
 # Default value is enabled=0.
 # WARNING: This Bochs feature is not maintained yet and may fail.
 #=======================================================================
-#gdbstub: enabled=0, port=1234, text_base=0, data_base=0, bss_base=0
+#gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 
 #=======================================================================
 # MAGIC_BREAK:

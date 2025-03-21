@@ -10,7 +10,6 @@ set echo
             --enable-3dnow \
             --enable-x86-64 \
             --enable-vmx=2 \
-            --enable-svm \
             --enable-avx \
             --enable-evex \
             --enable-cet \

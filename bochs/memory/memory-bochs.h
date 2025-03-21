@@ -208,6 +208,12 @@ public:
 #endif
   friend Bit64s memory_param_save_handler(void *devptr, bx_param_c *param);
   friend void memory_param_restore_handler(void *devptr, bx_param_c *param, Bit64s val);
+//#ifdef QEMU_CFG_FW
+  BX_MEM_SMF bool flash_read_mem(bx_phy_address addr, unsigned len, void *data, void *param);
+  BX_MEM_SMF bool flash_write_mem(bx_phy_address addr, unsigned len, void *data, void *param);
+  Bit8u   *flash_buffer;
+  Bit64u flash_addr;
+//#endif
 };
 
 BOCHSAPI extern BX_MEM_C bx_mem;
