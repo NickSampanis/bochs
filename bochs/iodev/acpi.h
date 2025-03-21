@@ -69,6 +69,10 @@ private:
     Bit64u tmr_overflow_time;
     Bit8u pmreg[0x38];
     int timer_index;
+//#ifdef QEMU_CFG_FW
+    Bit16u cfg_selector;
+    Bit32u cfg_state;
+//#endif
     struct {
       Bit8u stat;
       Bit8u ctl;

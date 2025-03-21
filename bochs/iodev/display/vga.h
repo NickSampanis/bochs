@@ -33,7 +33,11 @@
 #define VBE_DISPI_MAX_BPP                32
 
 #define VBE_DISPI_IOPORT_INDEX           0x01CE
-#define VBE_DISPI_IOPORT_DATA            0x01CF
+//#ifdef QEMU_CFG_FW
+#define VBE_DISPI_IOPORT_DATA            0x01D0
+//#else
+//#define VBE_DISPI_IOPORT_DATA          0x01CF
+//endif
 
 #define VBE_DISPI_INDEX_ID               0x0
 #define VBE_DISPI_INDEX_XRES             0x1

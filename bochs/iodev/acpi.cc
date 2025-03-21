@@ -33,7 +33,9 @@
 
 #include "pci.h"
 #include "acpi.h"
-
+//#ifdef QEMU_CFG_FW
+#include "acpi_fw_cfg.h"
+//#endif
 #define LOG_THIS theACPIController->
 
 bx_acpi_ctrl_c* theACPIController = NULL;
@@ -106,7 +108,280 @@ Bit64u muldiv64(Bit64u a, Bit32u b, Bit32u c)
 
   return res.ll;
 }
+//#ifdef QEMU_CFG_FW
+#include "bios/acpi-dsdt.hex"
+static Bit32u qemu_idx;
+static QEMU_LOADER_ENTRY qemu_entry[30];
+static rsdt_descriptor_rev1 *rsdt;
+static rsdp_descriptor *rsdp;
+static fadt_descriptor_rev1 *fadt;
+static facs_descriptor_rev1 *facs;
+static multiple_apic_table *madt;
+static acpi_20_hpet *hpet;
+static Bit8u *ssdt, *dsdt;
+static Bit64u msr_feature_control;
 
+Bit32u madt_size;
+
+static void add_qemu_entry_allocation(Bit8u *signature)
+{
+  qemu_entry[qemu_idx].Type = QemuLoaderCmdAllocate;
+  memcpy(qemu_entry[qemu_idx].Command.Allocate.File, signature, 4);
+  qemu_idx++;
+}
+
+static void add_qemu_entry_pointer(Bit8u *signature_structure, Bit32u offset, Bit8u *signature_pointer)
+{
+  qemu_entry[qemu_idx].Type = QemuLoaderCmdAddPointer;
+  memcpy(qemu_entry[qemu_idx].Command.AddPointer.PointeeFile, signature_pointer, 4);
+  memcpy(qemu_entry[qemu_idx].Command.AddPointer.PointerFile, signature_structure, 4);
+  qemu_entry[qemu_idx].Command.AddPointer.PointerOffset = offset;
+  qemu_entry[qemu_idx].Command.AddPointer.PointerSize = 4;
+  qemu_idx++;
+}
+
+static void add_qemu_entry_checksum(Bit8u *signature_structure, Bit32u start, Bit32u length, Bit32u result)
+{
+  qemu_entry[qemu_idx].Type = QemuLoaderCmdAddChecksum;
+  memcpy(qemu_entry[qemu_idx].Command.AddChecksum.File, signature_structure, 4);
+  qemu_entry[qemu_idx].Command.AddChecksum.ResultOffset = result;
+  qemu_entry[qemu_idx].Command.AddChecksum.Start = start;
+  qemu_entry[qemu_idx].Command.AddChecksum.Length = length;
+  qemu_idx++;
+}
+
+static int acpi_checksum(Bit8u *data, int len)
+{
+    int sum, i;
+    sum = 0;
+    for(i = 0; i < len; i++)
+        sum += data[i];
+    return (-sum) & 0xff;
+}
+
+static void acpi_build_table_header(acpi_table_header *h,
+                                    char *sig, int len, uint8_t rev)
+{
+    memcpy(h->signature, sig, 4);
+    h->length = len;
+    h->revision = rev;
+    memcpy(h->oem_id, "QEMU  ", 6);
+    memcpy(h->oem_table_id, "QEMU", 4);
+    memcpy(h->oem_table_id + 4, sig, 4);
+    h->oem_revision = 1;
+    memcpy(h->asl_compiler_id, "QEMU", 4);
+    h->asl_compiler_revision = 1;
+    h->checksum = acpi_checksum((Bit8u *)h, len);
+}
+
+static void acpi_build_processor_ssdt()
+{
+    uint8_t *ssdt_ptr;
+    int i, length;
+    int smp_cpus = BX_SMP_PROCESSORS;
+    int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
+
+    ssdt = (Bit8u *)malloc(0x200);
+    memset(ssdt, 0, 0x200);
+    ssdt_ptr = (uint8_t *)ssdt;
+    ssdt_ptr[9] = 0; // checksum;
+    ssdt_ptr += sizeof(acpi_table_header);
+
+    // caluculate the length of processor block and scope block excluding PkgLength
+    length = 0x0d * acpi_cpus + 4;
+
+    // build processor scope header
+    *(ssdt_ptr++) = 0x10; // ScopeOp
+    if (length <= 0x3e) {
+        // Handle 1-4 CPUs with one byte encoding 
+        *(ssdt_ptr++) = length + 1;
+    } else {
+        // Handle 5-314 CPUs with two byte encoding 
+        *(ssdt_ptr++) = 0x40 | ((length + 2) & 0xf);
+        *(ssdt_ptr++) = (length + 2) >> 4;
+    }
+    *(ssdt_ptr++) = '_'; // Name
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'R';
+    *(ssdt_ptr++) = '_';
+
+    // build object for each processor
+    for(i = 0; i < acpi_cpus; i++) {
+        *(ssdt_ptr++) = 0x5B; // ProcessorOp
+        *(ssdt_ptr++) = 0x83;
+        *(ssdt_ptr++) = 0x0B; // Length
+        *(ssdt_ptr++) = 'C';  // Name (CPUxx)
+        *(ssdt_ptr++) = 'P';
+        if ((i & 0xf0) != 0)
+            *(ssdt_ptr++) = (i >> 4) < 0xa ? (i >> 4) + '0' : (i >> 4) + 'A' - 0xa;
+        else
+            *(ssdt_ptr++) = 'U';
+        *(ssdt_ptr++) = (i & 0xf) < 0xa ? (i & 0xf) + '0' : (i & 0xf) + 'A' - 0xa;
+        *(ssdt_ptr++) = i;
+        *(ssdt_ptr++) = 0x10; // Processor block address
+        *(ssdt_ptr++) = 0xb0;
+        *(ssdt_ptr++) = 0;
+        *(ssdt_ptr++) = 0;
+        *(ssdt_ptr++) = 6;    // Processor block length
+    }
+
+    acpi_build_table_header((acpi_table_header *)ssdt,
+                            (char *)"SSDT", (int)(ssdt_ptr - ssdt), 1);
+    add_qemu_entry_allocation((Bit8u *)"ssdt");
+
+}
+
+static void build_hpet()
+{
+  hpet = (acpi_20_hpet *)malloc(QEMU_ENTRY_SIZE(sizeof(*hpet)));
+  memset(hpet, 0, QEMU_ENTRY_SIZE(sizeof(*hpet)));
+  hpet->timer_block_id = 0x8086a201; //SWAP_32(0x8086a201);
+  hpet->addr.address = ACPI_HPET_ADDRESS;
+  acpi_build_table_header((acpi_table_header *)hpet,
+                             (char *)"HPET", sizeof(*hpet), 1);
+  add_qemu_entry_allocation((Bit8u *)"hpet");
+                        
+}
+
+
+static void build_madt()
+{
+  Bit32u smp_cpus;
+  madt_processor_apic *apic;
+  madt_io_apic *io_apic;
+  madt_int_override *int_override;
+
+  smp_cpus = BX_SMP_PROCESSORS;
+  madt_size = sizeof(*madt) + sizeof(madt_processor_apic) * smp_cpus +
+        sizeof(madt_io_apic) + sizeof(madt_int_override);
+  madt = (multiple_apic_table *)malloc(QEMU_ENTRY_SIZE(madt_size));
+  memset(madt, 0, QEMU_ENTRY_SIZE(madt_size));
+  madt->local_apic_address = 0xfee00000; //SWAP_32(0xfee00000);
+  madt->flags = 1;// SWAP_32(1);
+  apic = (madt_processor_apic *)(madt + 1);
+
+  for (Bit32u i = 0; i < smp_cpus; i++) {
+    apic->type = APIC_PROCESSOR;
+    apic->length = sizeof(*apic);
+    apic->processor_id = i;
+    apic->local_apic_id = i;
+    apic->flags = 1; //SWAP_32(1);
+    apic++;
+  }
+        
+  io_apic = (madt_io_apic *)apic;
+  io_apic->type = APIC_IO;
+  io_apic->length = sizeof(*io_apic);
+  io_apic->io_apic_id = smp_cpus;
+  io_apic->address = 0xfec00000; //SWAP_32(0xfec00000);
+  io_apic->interrupt = SWAP_32(0);
+  io_apic++;
+
+  int_override = (madt_int_override *)io_apic;
+  int_override->type = APIC_XRUPT_OVERRIDE;
+  int_override->length = sizeof(*int_override);
+  int_override->bus = SWAP_32(0);
+  int_override->source = SWAP_32(0);
+  int_override->gsi = 2; //SWAP_32(2);
+  int_override->flags = SWAP_32(0);
+
+  acpi_build_table_header((acpi_table_header *)madt, (char *)"APIC", madt_size, 1);
+  add_qemu_entry_allocation((Bit8u *)"madt");
+}
+
+static void build_facs()
+{
+  // FACS 
+  facs = (facs_descriptor_rev1 *)malloc(QEMU_ENTRY_SIZE(sizeof(*facs)));
+  memset(facs, 0, sizeof(*facs));
+  memcpy(facs->signature, "FACS", 4);
+  facs->length = sizeof(*facs);
+
+  //BX_INFO("Firmware waking vector %p\n", &facs->firmware_waking_vector);
+  add_qemu_entry_allocation((Bit8u *)"facs");
+}
+
+static void build_fadt()
+{
+  //amlcode
+  add_qemu_entry_allocation((Bit8u *)"dsdt");
+  dsdt = (Bit8u *)malloc(QEMU_ENTRY_SIZE(sizeof(AmlCode)));
+  memset(dsdt, 0, QEMU_ENTRY_SIZE(sizeof(AmlCode)));
+  memcpy(dsdt, AmlCode, sizeof(AmlCode));
+  add_qemu_entry_checksum((Bit8u *)"dsdt", 0, sizeof(AmlCode), offsetof(fadt_descriptor_rev1,checksum));
+  *(dsdt + 9) = 0; 
+  fadt = (fadt_descriptor_rev1 *)malloc(QEMU_ENTRY_SIZE(sizeof(*fadt)));
+  memset(fadt, 0, QEMU_ENTRY_SIZE(sizeof(*fadt)));
+  //fadt->firmware_ctrl = cpu_to_le32(facs_addr);
+  //fadt->dsdt = cpu_to_le32(dsdt_addr);
+  fadt->model = 1;
+  fadt->reserved1 = 0;
+  fadt->sci_int = 0x9; //SWAP_16(9);
+  fadt->smi_cmd = 0xb2; //SWAP_32(0xb2);
+  fadt->acpi_enable = 0xf1;
+  fadt->acpi_disable = 0xf0;
+  fadt->pm1a_evt_blk = 0xb000;//SWAP_32(0xb000);
+  fadt->pm1a_cnt_blk = 0xb004;//SWAP_32(0xb000 + 0x04);
+  fadt->pm_tmr_blk = 0xb008;//SWAP_32(0xb000 + 0x08);
+  fadt->gpe0_blk = 0xafe0; //SWAP_32(0xafe0);
+  fadt->pm1_evt_len = 4;
+  fadt->pm1_cnt_len = 2;
+  fadt->pm_tmr_len = 4;
+  fadt->gpe0_blk_len = 4;
+  fadt->plvl2_lat = 0xfff; //SWAP_16(0xfff); // C2 state not supported
+  fadt->plvl3_lat = 0xfff; //SWAP_16(0xfff); // C3 state not supported
+  // WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC 
+  fadt->flags = (1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6); //SWAP_32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
+  acpi_build_table_header((acpi_table_header *)fadt, (char *)"FACP",  sizeof(*fadt), 1);
+  fadt->checksum = 0;
+  add_qemu_entry_allocation((Bit8u *)"fadt");
+  add_qemu_entry_pointer((Bit8u *)"fadt", offsetof(fadt_descriptor_rev1, firmware_ctrl), (Bit8u *)"facs");
+  add_qemu_entry_pointer((Bit8u *)"fadt", offsetof(fadt_descriptor_rev1, dsdt), (Bit8u *)"dsdt");
+  add_qemu_entry_checksum((Bit8u *)"fadt", 0, sizeof(fadt_descriptor_rev1), offsetof(fadt_descriptor_rev1,checksum));
+}
+
+
+static void build_rsdt() 
+{
+  rsdt = (rsdt_descriptor_rev1 *)malloc(QEMU_ENTRY_SIZE(sizeof(*rsdt)));  
+  memset(rsdt, 0, QEMU_ENTRY_SIZE(sizeof(*rsdt)));
+  memcpy(rsdt->signature, "RSDT", 4);
+  memcpy(rsdt->oem_id, "QEMU  ", 6);
+  rsdt->length = sizeof(acpi_table_header);
+  //rsdt->checksum = acpi_checksum((Bit8u *)rsdt, sizeof(acpi_table_header));
+  rsdt->checksum = 0;
+  /*
+  rsdt.table_offset_entry[0] = fadt_addr;
+  rsdt.table_offset_entry[1] = madt_addr;
+  rsdt.table_offset_entry[2] = ssdt_addr;
+  rsdt.table_offset_entry[3] = hpet_addr;
+  */
+  acpi_build_table_header((acpi_table_header *)rsdt, (char *)"RSDT", sizeof(*rsdt), 1);
+  add_qemu_entry_allocation((Bit8u *)"rsdt");
+  add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[0]), (Bit8u *)"fadt");
+  add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[1]), (Bit8u *)"madt");
+  add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[2]), (Bit8u *)"ssdt");
+  add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[3]), (Bit8u *)"hpet");
+  add_qemu_entry_checksum((Bit8u *)"rsdt", 0, sizeof(rsdt_descriptor_rev1), offsetof(rsdt_descriptor_rev1,checksum));
+
+
+}
+
+static void build_rsdp() 
+{
+  rsdp = (rsdp_descriptor *)malloc(QEMU_ENTRY_SIZE(sizeof(*rsdp)));  
+  memset(rsdp, 0, QEMU_ENTRY_SIZE(sizeof(*rsdp)));
+  memcpy(rsdp->signature, "RSD ", 4);
+  memcpy(rsdp->signature+4, "PTR ", 4);
+  memcpy(rsdp->oem_id, "QEMU  ", 6);
+  rsdp->rsdt_physical_address = 0;
+  rsdp->revision = 0;
+  rsdp->checksum = acpi_checksum((Bit8u *)rsdp, 20);
+  add_qemu_entry_allocation((Bit8u *)"rsdp");
+  add_qemu_entry_pointer((Bit8u *)"rsdp", offsetof(rsdp_descriptor, rsdt_physical_address), (Bit8u *)"rsdt");
+
+}
+//#endif
 bx_acpi_ctrl_c::bx_acpi_ctrl_c()
 {
   put("ACPI");
@@ -138,7 +413,18 @@ void bx_acpi_ctrl_c::init(void)
       DEV_register_timer(this, timer_handler, 1000, 0, 0, "ACPI");
   }
   DEV_register_iowrite_handler(this, write_handler, ACPI_DBG_IO_ADDR, "ACPI", 4);
-
+//#ifdef QEMU_CFG_FW
+  DEV_register_iowrite_handler_range(this, write_handler, 0x510, 0x514,  "ACPI", 7);
+  DEV_register_ioread_handler_range(this, read_handler, 0x510, 0x514,  "ACPI", 7);
+  acpi_build_processor_ssdt();
+  build_hpet();
+  build_madt();
+  build_facs();
+  build_fadt();
+  build_rsdt();
+  build_rsdp();
+  msr_feature_control = (1 << 0) | (1 << 2);
+//#endif
   BX_ACPI_THIS s.pm_base = 0x0;
   BX_ACPI_THIS s.sm_base = 0x0;
 
@@ -333,7 +619,181 @@ Bit32u bx_acpi_ctrl_c::read(Bit32u address, unsigned io_len)
         }
     }
     BX_DEBUG(("read from PM register 0x%02x returns 0x%08x (len=%d)", reg, value, io_len));
-  } else {
+  } 
+  //#ifdef QEMU_CFG_FW
+  else if ((address & 0xfff0) == 0x510) {
+    Bit8u cfg_data_signature[] = { 'Q', 'E', 'M', 'U'};
+    Bit32u cfg_data_revision = SWAP_32(0x1);
+    Bit32u cfg_data_kernel_size = SWAP_32(0);
+    Bit16u cfg_data_nb_cpus = SWAP_16(0);
+    Bit16u cfg_data_boot_menu = SWAP_16(0);
+    struct fw_cfg_files cfg_data_files[] = {
+      SWAP_32(10), //number of files
+      SWAP_32(sizeof(QEMU_LOADER_ENTRY) * qemu_idx), SWAP_16(0x40), 0, {"etc/table-loader"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(rsdp_descriptor))), SWAP_16(RSDP_FILE_ID), 0, {"rsdp"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(rsdt_descriptor_rev1))), SWAP_16(RSDT_FILE_ID), 0, {"rsdt"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(fadt_descriptor_rev1))), SWAP_16(FADT_FILE_ID), 0, {"fadt"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(facs_descriptor_rev1))), SWAP_16(FACS_FILE_ID), 0, {"facs"},
+      SWAP_32(QEMU_ENTRY_SIZE(madt_size)), SWAP_16(MADT_FILE_ID), 0, {"madt"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(acpi_20_hpet))), SWAP_16(HPET_FILE_ID), 0, {"hpet"},
+      SWAP_32(sizeof(QEMU_LOADER_ENTRY) * 3), SWAP_16(SSDT_FILE_ID), 0, {"ssdt"},
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(AmlCode))), SWAP_16(DSDT_FILE_ID), 0, {"dsdt"},
+      SWAP_32(8), SWAP_16(MSR_FILE_ID), 0, {"etc/msr_feature_control"}
+    };
+    switch (reg) {
+      case 0x10:
+        value = BX_ACPI_THIS s.cfg_selector;
+        break;
+      case 0x11:
+        switch (BX_ACPI_THIS s.cfg_selector) {
+          case FW_CFG_SIGNATURE:
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_signature))
+              break;
+            value = cfg_data_signature[BX_ACPI_THIS s.cfg_state++];
+            break;
+          case FW_CFG_ID:
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_revision))
+              break;
+            value = *((Bit8u *)&cfg_data_revision + BX_ACPI_THIS s.cfg_state++);
+            break;
+          /*
+          case FW_CFG_UUID: 
+            break;
+          case FW_CFG_RAM_SIZE: 
+            break;
+          case FW_CFG_NOGRAPHIC: 
+            break;
+          */
+          case FW_CFG_NB_CPUS: 
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_nb_cpus))
+              break;
+            value = *((Bit8u *)&cfg_data_nb_cpus + BX_ACPI_THIS s.cfg_state++);
+            break;
+          /*
+          case FW_CFG_MACHINE_ID: 
+            break;
+          case FW_CFG_KERNEL_ADDR: 
+            break;
+          */
+          case FW_CFG_KERNEL_SIZE: 
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_kernel_size))
+              break;
+            value = *((Bit8u *)&cfg_data_kernel_size + BX_ACPI_THIS s.cfg_state++); 
+            break;
+          /*
+          case FW_CFG_KERNEL_CMDLINE: 
+            break;
+          case FW_CFG_INITRD_ADDR: 
+            break;
+          */
+          case FW_CFG_INITRD_SIZE:
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_kernel_size))
+              break;
+            value = *((Bit8u *)&cfg_data_kernel_size + BX_ACPI_THIS s.cfg_state++); 
+            break;
+          /*
+          case FW_CFG_BOOT_DEVICE: 
+            break;
+          case FW_CFG_NUMA: 
+            break;
+          */
+          case FW_CFG_BOOT_MENU: 
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_boot_menu))
+              break;
+            value = *((Bit8u *)&cfg_data_boot_menu + BX_ACPI_THIS s.cfg_state++);             
+            break;
+          /*
+          case FW_CFG_MAX_CPUS: 
+            break;
+          case FW_CFG_KERNEL_ENTRY: 
+            break;
+          case FW_CFG_KERNEL_DATA: 
+            break;
+          case FW_CFG_INITRD_DATA: 
+            break;
+          case FW_CFG_CMDLINE_ADDR: 
+            break;
+          */
+          case FW_CFG_CMDLINE_SIZE:
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_kernel_size))
+              break;
+            value = *((Bit8u *)&cfg_data_kernel_size + BX_ACPI_THIS s.cfg_state++); 
+            break;
+          /*
+          case FW_CFG_CMDLINE_DATA: 
+            break;
+          case FW_CFG_SETUP_ADDR: 
+            break;
+          */
+          case FW_CFG_SETUP_SIZE: 
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_kernel_size))
+              break;
+            value = *((Bit8u *)&cfg_data_kernel_size + BX_ACPI_THIS s.cfg_state++); 
+            break;
+          /*
+          case FW_CFG_SETUP_DATA: 
+            break;
+          */
+          case FW_CFG_FILE_DIR:
+            if (BX_ACPI_THIS s.cfg_state > sizeof(cfg_data_files))
+              break;
+            value = *((Bit8u *)cfg_data_files + BX_ACPI_THIS s.cfg_state++); 
+            break;
+          /*
+          case FW_CFG_FILE_FIRST: 
+            break;
+          */
+          case TABLE_FILE_ID:
+            value = *((Bit8u *)&qemu_entry + BX_ACPI_THIS s.cfg_state++);
+            break;
+            
+          case RSDP_FILE_ID:
+            /*
+            memset(buf, 0, sizeof(buf));
+            build_rsdp(buf);
+            */
+            value = *((Bit8u *)rsdp + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case RSDT_FILE_ID:
+            /*
+            memset(buf, 0, sizeof(buf));
+            build_rsdt(buf);
+            */
+            value = *((Bit8u *)rsdt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case FADT_FILE_ID:
+            value = *((Bit8u *)fadt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case FACS_FILE_ID:
+            value = *((Bit8u *)facs + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case MADT_FILE_ID:
+            value = *((Bit8u *)madt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case HPET_FILE_ID:
+            value = *((Bit8u *)hpet + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case DSDT_FILE_ID:
+            value = *((Bit8u *)dsdt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case SSDT_FILE_ID:
+            value = *((Bit8u *)ssdt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case MSR_FILE_ID:
+            value = *((Bit8u *)&msr_feature_control + BX_ACPI_THIS s.cfg_state++);
+            break;
+          default:
+            BX_PANIC(("bx_acpi_ctrl_c::read BX_ACPI_THIS s.cfg_selector 0x", BX_ACPI_THIS s.cfg_selector));
+
+        }
+        break;
+      case 0x14:
+        break;      
+    }
+  }
+//#endif 
+
+  else {
     if (((BX_ACPI_THIS pci_conf[0x04] & 0x01) == 0) &&
         ((BX_ACPI_THIS pci_conf[0xd2] & 0x01) == 0)) {
       return value;
@@ -495,7 +955,81 @@ void bx_acpi_ctrl_c::write(Bit32u address, Bit32u value, unsigned io_len)
       default:
         BX_INFO(("write to SMBus register 0x%02x not implemented yet", reg));
     }
-  } else {
+  } 
+//#ifdef QEMU_CFG_FW
+  else if ((address & 0xfff0) == 0x510) {
+    switch (reg) {
+      case 0x10:
+        if (reg > FW_CFG_FILE_FIRST)
+          break;
+        BX_ACPI_THIS s.cfg_state = 0;
+        BX_ACPI_THIS s.cfg_selector = value;
+        break;
+      case 0x11:
+        switch (BX_ACPI_THIS s.cfg_selector) {
+          case FW_CFG_SIGNATURE: 
+            break;
+          case FW_CFG_ID: 
+            break;
+          case FW_CFG_UUID: 
+            break;
+          case FW_CFG_RAM_SIZE: 
+            break;
+          case FW_CFG_NOGRAPHIC: 
+            break;
+          case FW_CFG_NB_CPUS: 
+            break;
+          case FW_CFG_MACHINE_ID: 
+            break;
+          case FW_CFG_KERNEL_ADDR: 
+            break;
+          case FW_CFG_KERNEL_SIZE: 
+            break;
+          case FW_CFG_KERNEL_CMDLINE: 
+            break;
+          case FW_CFG_INITRD_ADDR: 
+            break;
+          case FW_CFG_INITRD_SIZE: 
+            break;
+          case FW_CFG_BOOT_DEVICE: 
+            break;
+          case FW_CFG_NUMA: 
+            break;
+          case FW_CFG_BOOT_MENU: 
+            break;
+          case FW_CFG_MAX_CPUS: 
+            break;
+          case FW_CFG_KERNEL_ENTRY: 
+            break;
+          case FW_CFG_KERNEL_DATA: 
+            break;
+          case FW_CFG_INITRD_DATA: 
+            break;
+          case FW_CFG_CMDLINE_ADDR: 
+            break;
+          case FW_CFG_CMDLINE_SIZE: 
+            break;
+          case FW_CFG_CMDLINE_DATA: 
+            break;
+          case FW_CFG_SETUP_ADDR: 
+            break;
+          case FW_CFG_SETUP_SIZE: 
+            break;
+          case FW_CFG_SETUP_DATA: 
+            break;
+          case FW_CFG_FILE_DIR: 
+            break;
+          case FW_CFG_FILE_FIRST: 
+            break;
+        }
+        break;
+      case 0x14:
+        break;
+    }
+  }
+//#endif
+
+  else {
     BX_DEBUG(("DBG: 0x%08x", value));
   }
 }
