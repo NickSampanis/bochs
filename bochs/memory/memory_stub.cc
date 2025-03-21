@@ -80,7 +80,7 @@ Bit64u BX_MEMORY_STUB_C::get_memory_len(void)
 Bit8u* BX_MEMORY_STUB_C::alloc_vector_aligned(Bit64u bytes, Bit64u alignment)
 {
   Bit64u test_mask = alignment - 1;
-  BX_MEM_THIS actual_vector = new Bit8u [(Bit32u)(bytes + test_mask)];
+  BX_MEM_THIS actual_vector = new Bit8u [(Bit64u)(bytes + test_mask)];
   if (BX_MEM_THIS actual_vector == 0) {
     BX_PANIC(("alloc_vector_aligned: unable to allocate host RAM !"));
     return 0;
@@ -98,6 +98,7 @@ Bit8u* BX_MEMORY_STUB_C::alloc_vector_aligned(Bit64u bytes, Bit64u alignment)
 
 void BX_MEMORY_STUB_C::init_memory(Bit64u guest, Bit64u host, Bit32u block_size)
 {
+  Bit64u idx;
   // accept only memory size which is multiply of 1M
   BX_ASSERT((host & 0xfffff) == 0);
   BX_ASSERT((guest & 0xfffff) == 0);
@@ -133,14 +134,14 @@ void BX_MEMORY_STUB_C::init_memory(Bit64u guest, Bit64u host, Bit32u block_size)
   BX_MEM_THIS blocks = new Bit8u* [num_blocks];
   if (0) {
     // all guest memory is allocated, just map it
-    for (unsigned idx = 0; idx < num_blocks; idx++) {
+    for (idx = 0; idx < num_blocks; idx++) {
       BX_MEM_THIS blocks[idx] = BX_MEM_THIS vector + (idx * BX_MEM_THIS block_size);
     }
     BX_MEM_THIS used_blocks = num_blocks;
   }
   else {
     // host cannot allocate all requested guest memory
-    for (unsigned idx = 0; idx < num_blocks; idx++) {
+    for (idx = 0; idx < num_blocks; idx++) {
       BX_MEM_THIS blocks[idx] = NULL;
     }
     BX_MEM_THIS used_blocks = 0;

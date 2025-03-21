@@ -719,14 +719,16 @@ void bx_init_options()
       BX_DEFAULT_MEM_MEGS);
   ramsize->set_ask_format("Enter memory size (MB): [%d] ");
 
+//#ifdef EXTRA_MEMORY
   bx_param_num_c *host_ramsize = new bx_param_num_c(ram,
       "host",
       "Host allocated memory size (megabytes)",
       "Amount of host allocated memory in megabytes",
-      1, 2048,
+      1, 1000000000,
       BX_DEFAULT_MEM_MEGS);
   host_ramsize->set_ask_format("Enter host memory size (MB): [%d] ");
   ram->set_options(ram->SERIES_ASK);
+//#endif
 
   bx_param_num_c *mem_block_size = new bx_param_num_c(ram,
       "block_size",
