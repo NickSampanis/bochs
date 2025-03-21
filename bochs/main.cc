@@ -104,6 +104,300 @@ BOCHSAPI BX_CPU_C bx_cpu;
 BOCHSAPI BX_MEM_C bx_mem;
 
 char *bochsrc_filename = NULL;
+#include "Svmm.h"
+#include "SvmmDbgServer.h"
+//#include "SvmmDebugStub.h"
+#pragma comment(lib, "SvmmDebugStub.lib")  //link SvmmDebugStub.lib
+
+extern void bx_sr_after_restore_state(void);
+
+extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Registers)
+{
+  BX_CPU(processor)->gen_reg[0].rrx = Registers->context._rax;
+  BX_CPU(processor)->gen_reg[1].rrx = Registers->context._rcx;
+  BX_CPU(processor)->gen_reg[2].rrx = Registers->context._rdx;
+  BX_CPU(processor)->gen_reg[3].rrx = Registers->context._rbx;
+  BX_CPU(processor)->gen_reg[4].rrx = Registers->context._rsp;
+  BX_CPU(processor)->gen_reg[5].rrx = Registers->context._rbp;
+  BX_CPU(processor)->gen_reg[6].rrx = Registers->context._rsi;
+  BX_CPU(processor)->gen_reg[7].rrx = Registers->context._rdi;
+  BX_CPU(processor)->gen_reg[8].rrx = Registers->context._r8;
+  BX_CPU(processor)->gen_reg[9].rrx = Registers->context._r9;
+  BX_CPU(processor)->gen_reg[10].rrx = Registers->context._r10;
+  BX_CPU(processor)->gen_reg[11].rrx = Registers->context._r11;
+  BX_CPU(processor)->gen_reg[12].rrx = Registers->context._r12;
+  BX_CPU(processor)->gen_reg[13].rrx = Registers->context._r13;
+  BX_CPU(processor)->gen_reg[14].rrx = Registers->context._r14;
+  BX_CPU(processor)->gen_reg[15].rrx = Registers->context._r15;
+  BX_CPU(processor)->gen_reg[BX_64BIT_REG_RIP].rrx = Registers->context._rip;
+  if (BX_CPU(processor)->eflags != Registers->context._rflags) {
+    BX_CPU(processor)->setEFlagsOSZAPC(BX_CPU(processor)->eflags);
+    BX_CPU(processor)->eflags = Registers->context._rflags;
+  }
+  BX_CPU(processor)->dr[0] = Registers->context._dr0;
+  BX_CPU(processor)->dr[1] = Registers->context._dr1;
+  BX_CPU(processor)->dr[2] = Registers->context._dr2;
+  BX_CPU(processor)->dr[3] = Registers->context._dr3;
+  BX_CPU(processor)->dr6.val32 = Registers->context._dr6;
+  BX_CPU(processor)->dr7.val32 = Registers->context._dr7;
+	BX_CPU(processor)->cr0.val32 = (uint32_t)Registers->context._cr0;
+	BX_CPU(processor)->cr2 = Registers->context._cr2;
+	BX_CPU(processor)->cr3 = Registers->context._cr3;
+	BX_CPU(processor)->cr4.val32 = (uint32_t)Registers->context._cr4;
+	BX_CPU(processor)->xcr0.val32 = (uint32_t)Registers->xcr0;
+	BX_CPU(processor)->msr.tsc_aux = (uint32_t)Registers->tsc_aux;
+  //BX_CPU(processor)->set_TSC(Registers->tsc);
+	BX_CPU(processor)->msr.apicbase = Registers->apicbase;
+	BX_CPU(processor)->msr.sysenter_cs_msr = (uint32_t)Registers->context._sysenter_cs;
+	BX_CPU(processor)->msr.sysenter_esp_msr = Registers->context._sysenter_esp;
+	BX_CPU(processor)->msr.sysenter_eip_msr = Registers->context._sysenter_eip;
+	BX_CPU(processor)->msr.pat._u64 = Registers->pat;
+	BX_CPU(processor)->efer.val32 = (uint32_t)Registers->context._efer;
+	BX_CPU(processor)->msr.star = Registers->star;
+	BX_CPU(processor)->msr.lstar = Registers->lstar;
+	BX_CPU(processor)->msr.cstar = Registers->cstar;
+	BX_CPU(processor)->msr.fmask = (uint32_t)Registers->fmask;
+	BX_CPU(processor)->msr.kernelgsbase = Registers->kernelgsbase;
+	BX_CPU(processor)->mxcsr.mxcsr = Registers->fx.mxcsr;
+	BX_CPU(processor)->mxcsr_mask = Registers->fx.mxcsr_mask;
+  BX_CPU(processor)->smbase = Registers->smbase;
+  BX_CPU(processor)->gdtr.base = Registers->context._gdt.base;
+	BX_CPU(processor)->gdtr.limit = Registers->context._gdt.limit;
+	BX_CPU(processor)->idtr.base = Registers->context._idt.base;
+	BX_CPU(processor)->idtr.limit = Registers->context._idt.limit;
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->ldtr, 
+      Registers->context._ldt.ar & (1 << 7), Registers->context._ldt.selector, 
+      Registers->context._ldt.base,	Registers->context._ldt.limit, 
+      Registers->context._ldt.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->tr, 
+      Registers->context._tr.ar & (1 << 7), Registers->context._tr.selector, 
+      Registers->context._tr.base,	Registers->context._tr.limit, 
+      Registers->context._tr.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_CS], 
+      Registers->context._cs.ar & (1 << 7), Registers->context._cs.selector, 
+      Registers->context._cs.base,	Registers->context._cs.limit, 
+      Registers->context._cs.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_SS], 
+      Registers->context._ss.ar & (1 << 7), Registers->context._ss.selector, 
+      Registers->context._ss.base,	Registers->context._ss.limit, 
+      Registers->context._ss.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_DS], 
+      Registers->context._ds.ar & (1 << 7), Registers->context._ds.selector, 
+      Registers->context._ds.base,	Registers->context._ds.limit, 
+      Registers->context._ds.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_ES], 
+      Registers->context._es.ar & (1 << 7), Registers->context._es.selector, 
+      Registers->context._es.base,	Registers->context._es.limit, 
+      Registers->context._es.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_FS], 
+      Registers->context._fs.ar & (1 << 7), Registers->context._fs.selector, 
+      Registers->context._fs.base,	Registers->context._fs.limit, 
+      Registers->context._fs.ar);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_GS], 
+      Registers->context._gs.ar & (1 << 7), Registers->context._gs.selector, 
+      Registers->context._gs.base,	Registers->context._gs.limit, 
+      Registers->context._gs.ar);
+  BX_CPU_THIS_PTR TLB_flush();
+
+#if BX_CPU_LEVEL >= 4
+  BX_CPU_THIS_PTR handleAlignmentCheck();
+#endif
+
+  BX_CPU_THIS_PTR handleCpuModeChange();
+
+#if BX_CPU_LEVEL >= 6
+  BX_CPU_THIS_PTR handleSseModeChange();
+#if BX_SUPPORT_AVX
+  BX_CPU_THIS_PTR handleAvxModeChange();
+#endif
+#endif
+}
+
+extern "C" void bochs_flush_tlb(unsigned int processor) 
+{
+  BX_CPU(processor)->TLB_flush();
+  BX_CPU_THIS_PTR iCache.flushICacheEntries();
+}
+
+extern "C" void bochs_take_snapshot(const char *folder_name)
+{
+  SIM->save_state(folder_name);
+}
+extern class bx_pc_system_c bx_pc_system;
+
+extern "C" void bochs_restore_snapshot(const char *folder_name)
+{
+  bx_pc_system.Reset(BX_RESET_HARDWARE);
+  SIM->get_param_string(BXPN_RESTORE_PATH)->set(folder_name);
+  SIM->restore_hardware();
+  SIM->restore_logopts();
+  bx_sr_after_restore_state();
+  SIM->restore_config();
+}
+
+extern "C" unsigned long long bochs_get_host_page(unsigned int processor, unsigned long long gpaAddress)
+{
+  unsigned long long page;
+
+  page = BX_CPU(processor)->getHostMemAddr(gpaAddress, BX_READ);
+
+  return page;
+}
+
+extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Registers)
+{
+  Registers->context._rax = BX_CPU(processor)->gen_reg[0].rrx;   
+  Registers->context._rcx = BX_CPU(processor)->gen_reg[1].rrx; 
+  Registers->context._rdx = BX_CPU(processor)->gen_reg[2].rrx; 
+  Registers->context._rbx = BX_CPU(processor)->gen_reg[3].rrx; 
+  Registers->context._rsp = BX_CPU(processor)->gen_reg[4].rrx; 
+  Registers->context._rbp = BX_CPU(processor)->gen_reg[5].rrx; 
+  Registers->context._rsi = BX_CPU(processor)->gen_reg[6].rrx; 
+  Registers->context._rdi = BX_CPU(processor)->gen_reg[7].rrx; 
+  Registers->context._r8 = BX_CPU(processor)->gen_reg[8].rrx; 
+  Registers->context._r9 = BX_CPU(processor)->gen_reg[9].rrx; 
+  Registers->context._r10 = BX_CPU(processor)->gen_reg[10].rrx;
+  Registers->context._r11 = BX_CPU(processor)->gen_reg[11].rrx;
+  Registers->context._r12 = BX_CPU(processor)->gen_reg[12].rrx;
+  Registers->context._r13 = BX_CPU(processor)->gen_reg[13].rrx;
+  Registers->context._r14 = BX_CPU(processor)->gen_reg[14].rrx;
+  Registers->context._r15 = BX_CPU(processor)->gen_reg[15].rrx;
+  Registers->context._rip = BX_CPU(processor)->gen_reg[BX_64BIT_REG_RIP].rrx;  
+  Registers->context._rflags = (BX_CPU(processor)->eflags & 0xfffff73a) | 
+  ((unsigned int)(BX_CPU(processor)->get_OF() != 0) << 11UL) |
+  ((unsigned int)(BX_CPU(processor)->get_SF() != 0) << 7UL) |
+  ((unsigned int)(BX_CPU(processor)->get_ZF() != 0) << 6UL) | 
+  ((unsigned int)(BX_CPU(processor)->get_PF() != 0) << 2UL) |
+  ((unsigned int)(BX_CPU(processor)->get_CF() != 0) << 0UL);
+  BX_CPU(processor)->eflags = Registers->context._rflags;
+  Registers->context._dr0 = BX_CPU(processor)->dr[0];
+  Registers->context._dr1 = BX_CPU(processor)->dr[1];
+  Registers->context._dr2 = BX_CPU(processor)->dr[2];
+  Registers->context._dr3 = BX_CPU(processor)->dr[3];
+  Registers->context._dr6 = BX_CPU(processor)->dr6.val32; 
+  Registers->context._dr7 = BX_CPU(processor)->dr7.val32;
+  Registers->context._cr0 = BX_CPU(processor)->cr0.val32;
+  Registers->context._cr2 = BX_CPU(processor)->cr2;
+  Registers->context._cr3 = BX_CPU(processor)->cr3;
+  Registers->context._cr4 = BX_CPU(processor)->cr4.val32;
+  
+  Registers->xcr0 = BX_CPU(processor)->xcr0.val32;
+  Registers->tsc_aux = BX_CPU(processor)->msr.tsc_aux;
+  Registers->tsc = BX_CPU(processor)->get_TSC();
+  Registers->apicbase = BX_CPU(processor)->msr.apicbase;
+  Registers->context._sysenter_cs = BX_CPU(processor)->msr.sysenter_cs_msr;
+  Registers->context._sysenter_esp = BX_CPU(processor)->msr.sysenter_esp_msr;
+  Registers->context._sysenter_eip = BX_CPU(processor)->msr.sysenter_eip_msr;
+  Registers->pat = BX_CPU(processor)->msr.pat._u64;
+  Registers->context._efer = BX_CPU(processor)->efer.val32;
+  Registers->star = BX_CPU(processor)->msr.star;
+  Registers->lstar = BX_CPU(processor)->msr.lstar;
+  Registers->cstar = BX_CPU(processor)->msr.cstar;
+  Registers->fmask = BX_CPU(processor)->msr.fmask;
+  Registers->kernelgsbase = BX_CPU(processor)->msr.kernelgsbase;
+  Registers->fx.mxcsr = BX_CPU(processor)->mxcsr.mxcsr;
+  Registers->fx.mxcsr_mask = BX_CPU(processor)->mxcsr_mask;
+  Registers->smbase = BX_CPU(processor)->smbase;
+  Registers->context._gdt.base = BX_CPU(processor)->gdtr.base;
+  Registers->context._gdt.limit = BX_CPU(processor)->gdtr.limit;
+  Registers->context._idt.base = BX_CPU(processor)->idtr.base;
+  Registers->context._idt.limit = BX_CPU(processor)->idtr.limit;
+
+  Registers->context._ldt.selector = BX_CPU(processor)->ldtr.selector.value;
+  Registers->context._ldt.limit = BX_CPU(processor)->ldtr.cache.u.segment.limit_scaled;
+  Registers->context._ldt.base = BX_CPU(processor)->ldtr.cache.u.segment.base;
+  Registers->context._ldt.ar = get_ar_byte(&BX_CPU(processor)->ldtr.cache);
+  Registers->context._ldt.available = BX_CPU(processor)->ldtr.cache.u.segment.avl;
+  Registers->context._ldt.long_mode = BX_CPU(processor)->ldtr.cache.u.segment.l;
+  Registers->context._ldt.operand_size = BX_CPU(processor)->ldtr.cache.u.segment.d_b;
+  Registers->context._ldt.granularity = BX_CPU(processor)->ldtr.cache.u.segment.g;
+
+  Registers->context._cs.selector = BX_CPU(processor)->sregs[BX_SEG_REG_CS].selector.value;
+  Registers->context._cs.limit = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.limit_scaled;
+  Registers->context._cs.base = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.base;
+  Registers->context._cs.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache);
+  Registers->context._cs.available = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.avl;
+  Registers->context._cs.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.l;
+  Registers->context._cs.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.d_b;
+  Registers->context._cs.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.g;
+
+  Registers->context._ds.selector = BX_CPU(processor)->sregs[BX_SEG_REG_DS].selector.value;
+  Registers->context._ds.limit = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.limit_scaled;
+  Registers->context._ds.base = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.base;
+  Registers->context._ds.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache);
+  Registers->context._ds.available = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.avl;
+  Registers->context._ds.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.l;
+  Registers->context._ds.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.d_b;
+  Registers->context._ds.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.g;
+
+  Registers->context._ss.selector = BX_CPU(processor)->sregs[BX_SEG_REG_SS].selector.value;
+  Registers->context._ss.limit = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.limit_scaled;
+  Registers->context._ss.base = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.base;
+  Registers->context._ss.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache);
+  Registers->context._ss.available = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.avl;
+  Registers->context._ss.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.l;
+  Registers->context._ss.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.d_b;
+  Registers->context._ss.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.g;
+
+  Registers->context._es.selector = BX_CPU(processor)->sregs[BX_SEG_REG_ES].selector.value;
+  Registers->context._es.limit = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.limit_scaled;
+  Registers->context._es.base = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.base;
+  Registers->context._es.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache);
+  Registers->context._es.available = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.avl;
+  Registers->context._es.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.l;
+  Registers->context._es.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.d_b;
+  Registers->context._es.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.g;
+
+  Registers->context._fs.selector = BX_CPU(processor)->sregs[BX_SEG_REG_FS].selector.value;
+  Registers->context._fs.limit = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.limit_scaled;
+  Registers->context._fs.base = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.base;
+  Registers->context._fs.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache);
+  Registers->context._fs.available = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.avl;
+  Registers->context._fs.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.l;
+  Registers->context._fs.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.d_b;
+  Registers->context._fs.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.g;
+
+  Registers->context._gs.selector = BX_CPU(processor)->sregs[BX_SEG_REG_GS].selector.value;
+  Registers->context._gs.limit = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.limit_scaled;
+  Registers->context._gs.base = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.base;
+  Registers->context._gs.ar = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache);
+  Registers->context._gs.available = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.avl;
+  Registers->context._gs.long_mode = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.l;
+  Registers->context._gs.operand_size = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.d_b;
+  Registers->context._gs.granularity = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.g;
+
+  Registers->context._tr.selector = BX_CPU(processor)->tr.selector.value;
+  Registers->context._tr.limit = BX_CPU(processor)->tr.cache.u.segment.limit_scaled;
+  Registers->context._tr.base = BX_CPU(processor)->tr.cache.u.segment.base;
+  Registers->context._tr.ar = get_ar_byte(&BX_CPU(processor)->tr.cache);
+  Registers->context._tr.available = BX_CPU(processor)->tr.cache.u.segment.avl;
+  Registers->context._tr.long_mode = BX_CPU(processor)->tr.cache.u.segment.l;
+  Registers->context._tr.operand_size = BX_CPU(processor)->tr.cache.u.segment.d_b;
+  Registers->context._tr.granularity = BX_CPU(processor)->tr.cache.u.segment.g;
+
+}
+
+void bx_svmmstub_init(void)
+{
+  unsigned char dbgState;
+
+  SvmmDbgInit("50001");
+  SvmmDbgBochsInit(bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot);
+  dbgState = SvmmDbgLoop();
+
+  /* CPU loop */
+  while (1) {
+    if (dbgState == DBG_TYPE_STEP_INTO)
+      BX_CPU_THIS_PTR set_TF(BX_CPU_THIS_PTR eflags);
+    else
+      BX_CPU_THIS_PTR clear_TF();
+    bx_cpu.cpu_loop();
+    //SIM->refresh_vga();
+    dbgState = SvmmDbgLoop();
+    //BX_CPU(bx_cpu)->
+  }
+}
+
 
 size_t bx_get_timestamp(char *buffer)
 {
@@ -1076,6 +1370,9 @@ int bx_begin_simulation(int argc, char *argv[])
     else
 #endif
     {
+      if (bx_dbg.svmstub_enabled) {
+        bx_svmmstub_init();
+      }
       if (BX_SMP_PROCESSORS == 1) {
         // only one processor, run as fast as possible by not messing with
         // quantums and loops.

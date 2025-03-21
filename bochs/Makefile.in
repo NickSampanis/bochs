@@ -807,7 +807,7 @@ logio.o: logio.@CPP_SUFFIX@ bochs.h config.h osdep.h logio.h misc/bswap.h \
  cpu/decoder/instr.h cpu/lazy_flags.h cpu/tlb.h cpu/icache.h cpu/xmm.h \
  cpu/vmx.h cpu/vmx_ctrls.h cpu/access.h bx_debug/debug.h osdep.h \
  cpu/decoder/decoder.h
-main.o: main.@CPP_SUFFIX@ bochs.h config.h osdep.h logio.h misc/bswap.h bxversion.h \
+main.o: svmmstub.@CPP_SUFFIX@ main.@CPP_SUFFIX@ bochs.h config.h osdep.h logio.h misc/bswap.h bxversion.h \
  param_names.h cpu/cpu.h cpu/decoder/decoder.h cpu/decoder/features.h \
  instrument/stubs/instrument.h cpu/i387.h \
  cpu/softfloat3e/include/softfloat_types.h config.h cpu/fpu/tag_w.h \

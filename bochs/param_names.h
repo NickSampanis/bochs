@@ -162,6 +162,7 @@
 #define BXPN_PORT_E9_HACK_ALL_RINGS      "misc.port_e9_hack.all_rings"
 #define BXPN_IODEBUG_ALL_RINGS           "misc.iodebug_all_rings"
 #define BXPN_GDBSTUB                     "misc.gdbstub"
+#define BXPN_SVMMSTUB                    "misc.svmmstub"
 #define BXPN_LOG_FILENAME                "log.filename"
 #define BXPN_LOG_PREFIX                  "log.prefix"
 #define BXPN_DEBUGGER_LOG_FILENAME       "log.debugger_filename"

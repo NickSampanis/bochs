@@ -3120,7 +3120,24 @@ static int parse_line_formatted(const char *context, int num_params, char *param
 #else
     PARSE_ERR(("%s: Bochs is not compiled with lowlevel sound support", context));
 #endif
-  } else if (!strcmp(params[0], "gdbstub")) {
+  }
+  else if (!strcmp(params[0], "svmmstub")) {
+    base = (bx_list_c*) SIM->get_param(BXPN_SVMMSTUB);
+    for (i=1; i<num_params; i++) {
+      if (!strncmp(params[i], "enabled=", 8)) {
+        if (params[i][8] == '1') {
+          bx_dbg.svmstub_enabled = true;
+        }
+        else {
+          bx_dbg.svmstub_enabled = false;
+        }
+      }
+      else if (!strncmp(params[i], "port=", 5)) {
+        SIM->get_param_num("port", base)->set(atoi(&params[i][5]));
+      }
+    }
+  }
+  else if (!strcmp(params[0], "gdbstub")) {
 #if BX_GDBSTUB
     if (num_params < 2) {
       PARSE_ERR(("%s: gdbstub directive: wrong # args.", context));

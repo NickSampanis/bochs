@@ -929,10 +929,7 @@ bool BX_MEM_C::flash_write_mem(bx_phy_address addr, unsigned len, void *data, vo
   return true;
 
 }
-Bit8u* BX_MEM_C::flash_direct_access_mem(bx_phy_address addr, unsigned rw, void *param)
-{
-  return BX_MEM(0)->flash_buffer + (addr - BX_MEM(0)->flash_addr);
-}
+
 //#endif
 
 Bit8u BX_MEM_C::flash_read(Bit32u addr)
