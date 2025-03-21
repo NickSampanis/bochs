@@ -124,6 +124,10 @@ bool bx_vga_c::init_vga_extension(void)
     BX_VGA_THIS s.max_xres = BX_VGA_THIS vbe.max_xres;
     BX_VGA_THIS s.max_yres = BX_VGA_THIS vbe.max_yres;
     BX_VGA_THIS vbe_present = 1;
+//#ifdef QEMU_CFG_FW
+    BX_VGA_THIS vbe.visible_screen_size = 0;
+    BX_VGA_THIS vbe.line_offset = 0;
+//#endif
     BX_VGA_THIS ddc.init();
     ret = 1;
 
