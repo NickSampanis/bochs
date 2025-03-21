@@ -1329,6 +1329,23 @@ void bx_init_hardware()
       BX_MEM(0)->load_RAM(SIM->get_param_string("file", base)->getptr(),
                           SIM->get_param_num("address", base)->get());
   }
+//#ifdef QEMU_CFG_FW
+  //PlatformPei + 0x1EAE returns the addr
+  BX_MEM(0)->flash_addr = 0xbff7c000;
+  
+  DEV_register_memory_handlers(BX_MEM(0), BX_MEM(0)->flash_read_mem, BX_MEM(0)->flash_write_mem,
+                                   BX_MEM(0)->flash_addr, BX_MEM(0)->flash_addr + 0x84000 - 1);
+#ifdef WIN32
+    HANDLE hFlash = CreateFileA("bios/OVMF_VARS.fd", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 
+                              FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, NULL);
+    if (hFlash == INVALID_HANDLE_VALUE) 
+      BX_PANIC(("Failed to open bios/OVMF_VARS.fd"));
+    HANDLE hFlashMap = CreateFileMappingA(hFlash, NULL, PAGE_READWRITE, 0, 0, NULL);
+     if (hFlashMap == INVALID_HANDLE_VALUE) 
+      BX_PANIC(("Failed to open bios/OVMF_VARS.fd"));
+    BX_MEM(0)->flash_buffer = (Bit8u *)MapViewOfFileEx(hFlashMap, FILE_MAP_WRITE, 0, 0, 0, NULL);
+#endif
+//#endif
 
 #if BX_SUPPORT_SMP == 0
   BX_CPU(0)->initialize();
