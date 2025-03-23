@@ -41,6 +41,13 @@ AC_ARG_ENABLE([static-link],
   [enable_static_link=no]
 )
 
+AC_ARG_ENABLE([debug],
+  [AS_HELP_STRING([--enable-debug],
+    [enable debug symbols-disable optimizations @<:@default=disabled@:>@])],
+  [enable_debug="$enableval"],
+  [enable_debug=no]
+)
+
 # this case statement defines the compile flags which are needed to
 # compile bochs on a platform.  Don't put things like optimization settings
 # into the configure.in file, since people will want to be able to change
@@ -2907,6 +2914,10 @@ case "$target" in
     else
       C_OPT="/O2"   # optimize for speed, no fastcall
     fi
+    if test "$enable_debug" = 1; then
+      C_OPT="/Zi /Od"
+      L_OPT="/debug"
+    fi
     if test "$bx_debugger" = 1; then
       C_OPT="$C_OPT /EHsc"
     else
@@ -2927,8 +2938,6 @@ case "$target" in
     MAKE=nmake
     MAKELIB="lib /nologo /subsystem:console /verbose /out:\$@"
     RMCOMMAND="-del"
-    #L_OPT="/debug"    # for debugging
-    L_OPT=""           # no debug info
     LINK="link $L_OPT /nologo /subsystem:console /incremental:no /out:\$@ "
     LINK_CONSOLE=$LINK
     EXE=".exe"

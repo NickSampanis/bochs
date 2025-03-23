@@ -190,6 +190,8 @@ void BX_CPU_C::cpu_loop(void)
       if (BX_CPU_THIS_PTR async_event) break;
 
       i = getICacheEntry()->i;
+      if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
+        break;
     }
 #else // BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS == 0
 
@@ -211,7 +213,8 @@ void BX_CPU_C::cpu_loop(void)
 #if BX_GDBSTUB
       if (gdbstub_instruction_epilog()) return;
 #endif
-
+      
+      
       if (BX_CPU_THIS_PTR async_event) break;
 
       if (++i == last) {
@@ -219,6 +222,8 @@ void BX_CPU_C::cpu_loop(void)
         i = entry->i;
         last = i + (entry->tlen);
       }
+      if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
+        break;
     }
 #endif
 
@@ -662,11 +667,26 @@ void BX_CPU_C::prefetch(void)
       BX_CPU_THIS_PTR eipPageWindowSize = (Bit32u)(limit + BX_CPU_THIS_PTR eipPageBias + 1);
     }
   }
-
+  /*
+  if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7.val32 & 0x3ff) { 
+    if ((BX_CPU_THIS_PTR dr[0] && BX_CPU_THIS_PTR dr[0] == laddr) ||
+          (BX_CPU_THIS_PTR dr[1] && BX_CPU_THIS_PTR dr[1] == laddr) ||
+          (BX_CPU_THIS_PTR dr[2] && BX_CPU_THIS_PTR dr[2] == laddr) ||
+          (BX_CPU_THIS_PTR dr[3] && BX_CPU_THIS_PTR dr[3] == laddr)) {
+      BX_CPU_THIS_PTR async_event = 1;
+      BX_CPU_THIS_PTR debug_trap = BX_DEBUG_SINGLE_STEP_BIT;
+    }
+  }
+  else {
+  */
 #if BX_X86_DEBUGGER
   if (hwbreakpoint_check(laddr, BX_HWDebugInstruction, BX_HWDebugInstruction)) {
-    signal_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
-    if (! interrupts_inhibited(BX_INHIBIT_DEBUG)) {
+      if (!bx_dbg.svmstub_enabled)   
+        signal_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
+      else
+        BX_CPU_THIS_PTR async_event = 1;
+      
+    if (! interrupts_inhibited(BX_INHIBIT_DEBUG) || bx_dbg.svmstub_enabled) {
        // The next instruction could already hit a code breakpoint but
        // async_event won't take effect immediatelly.
        // Check if the next executing instruction hits code breakpoint
@@ -678,7 +698,12 @@ void BX_CPU_C::prefetch(void)
          if (dr6_bits & BX_DEBUG_TRAP_HIT) {
            BX_ERROR(("#DB: x86 code breakpoint caught"));
            BX_CPU_THIS_PTR debug_trap |= dr6_bits;
-           exception(BX_DB_EXCEPTION, 0);
+           if (!bx_dbg.svmstub_enabled)
+            exception(BX_DB_EXCEPTION, 0);
+           else {
+            BX_CPU_THIS_PTR debug_trap |= BX_DEBUG_SINGLE_STEP_BIT;
+            return;
+           }
          }
        }
     }
@@ -687,7 +712,8 @@ void BX_CPU_C::prefetch(void)
     clear_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
   }
 #endif
-
+  //}
+  
   BX_CPU_THIS_PTR clear_RF();
 
   bx_address lpf = LPFOf(laddr);

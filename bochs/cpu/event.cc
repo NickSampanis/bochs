@@ -309,13 +309,18 @@ bool BX_CPU_C::handleAsyncEvent(void)
   // Priority 4: Traps on Previous Instruction
   //   Breakpoints
   //   Debug Trap Exceptions (TF flag set or data/IO breakpoint)
-  if (! interrupts_inhibited(BX_INHIBIT_DEBUG)) {
+  if (! interrupts_inhibited(BX_INHIBIT_DEBUG) || bx_dbg.svmstub_enabled) {
     // A trap may be inhibited on this boundary due to an instruction which loaded SS
 #if BX_X86_DEBUGGER
     // Pages with code breakpoints always have async_event=1 and therefore come here
     BX_CPU_THIS_PTR debug_trap |= code_breakpoint_match(get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip));
 #endif
     if (BX_CPU_THIS_PTR debug_trap & 0xf000) {
+      if (bx_dbg.svmstub_enabled) {
+        BX_CPU_THIS_PTR debug_trap = 0;
+        BX_CPU_THIS_PTR async_event = 0;
+        return 1;
+      }
       exception(BX_DB_EXCEPTION, 0); // no error, not interrupt
     }
     else {

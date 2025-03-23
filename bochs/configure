@@ -1063,6 +1063,7 @@ enable_show_ips
 enable_cpp
 enable_debugger
 enable_debugger_gui
+enable_debug
 enable_gdb_stub
 enable_iodebug
 enable_all_optimizations
@@ -23339,7 +23340,10 @@ if test "$enable_cpp" = yes; then
   fi
 fi
 
-
+if test ${enable_debug+y}
+then :
+  bx_debug=1
+fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Bochs internal debugger support" >&5
 printf %s "checking for Bochs internal debugger support... " >&6; }
@@ -26580,6 +26584,11 @@ case "$target" in
     else
       C_OPT="/O2"   # optimize for speed, no fastcall
     fi
+    L_OPT=""
+    if test "$bx_debug" = 1; then
+      L_OPT="/debug"
+      C_OPT="/Od /Zi" 
+    fi
     if test "$bx_debugger" = 1; then
       C_OPT="$C_OPT /EHsc"
     else
@@ -26601,7 +26610,6 @@ case "$target" in
     MAKELIB="lib /nologo /subsystem:console /verbose /out:\$@"
     RMCOMMAND="-del"
     #L_OPT="/debug"    # for debugging
-    L_OPT=""           # no debug info
     LINK="link $L_OPT /nologo /subsystem:console /incremental:no /out:\$@ "
     LINK_CONSOLE=$LINK
     EXE=".exe"

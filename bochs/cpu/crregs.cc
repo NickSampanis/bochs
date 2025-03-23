@@ -1624,7 +1624,11 @@ Bit32u BX_CPU_C::code_breakpoint_match(bx_address laddr)
 {
   if (BX_CPU_THIS_PTR get_RF())
     return 0;
-
+  if (bx_dbg.svmstub_enabled) {
+    Bit8u mem = system_read_byte(laddr);
+    if (mem == 0xcc)
+      return 0xf000;
+  }
   if (BX_CPU_THIS_PTR dr7.get_bp_enabled()) {
     Bit32u dr6_bits = hwdebug_compare(laddr, 1, BX_HWDebugInstruction, BX_HWDebugInstruction);
     return dr6_bits;
