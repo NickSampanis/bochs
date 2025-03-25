@@ -64,7 +64,11 @@ void BX_MEM_C::init_memory(Bit64u guest, Bit64u host, Bit32u block_size)
     BX_MEM_THIS memory_handlers[idx] = NULL;
 
   BX_MEM_THIS pci_enabled = SIM->get_param_bool(BXPN_PCI_ENABLED)->get();
-  BX_MEM_THIS bios_write_enabled = false;
+//#ifdef LINK_BREAKPOINTS
+  BX_MEM_THIS bios_write_enabled = true;
+//#else
+//BX_MEM_THIS bios_write_enabled = false;
+//#endif
   BX_MEM_THIS bios_rom_addr = 0xffff0000;
   BX_MEM_THIS flash_type = 0;
   BX_MEM_THIS flash_status = 0x80;

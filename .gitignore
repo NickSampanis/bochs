@@ -47,6 +47,7 @@ bochs-msvc-src.zip
 /bochs/bios/rombios*.txt
 /bochs/bios/rombios*.bin
 /bochs/bios/rombios32.out
+/bochs/bios/OVMF_VARS.fd
 
 # /bochs/build/linux/
 /bochs/build/linux/DOC-linux.html

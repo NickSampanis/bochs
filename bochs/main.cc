@@ -113,6 +113,7 @@ extern void bx_sr_after_restore_state(void);
 
 extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Registers)
 {
+  Bit64u tmp[4], i;
   BX_CPU(processor)->gen_reg[0].rrx = Registers->context._rax;
   BX_CPU(processor)->gen_reg[1].rrx = Registers->context._rcx;
   BX_CPU(processor)->gen_reg[2].rrx = Registers->context._rdx;
@@ -134,10 +135,21 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
     BX_CPU(processor)->setEFlagsOSZAPC(BX_CPU(processor)->eflags);
     BX_CPU(processor)->eflags = Registers->context._rflags;
   }
-  BX_CPU(processor)->dr[0] = Registers->context._dr0;
-  BX_CPU(processor)->dr[1] = Registers->context._dr1;
-  BX_CPU(processor)->dr[2] = Registers->context._dr2;
-  BX_CPU(processor)->dr[3] = Registers->context._dr3;
+  tmp[0] = Registers->context._dr0;
+  tmp[1] = Registers->context._dr1;
+  tmp[2] = Registers->context._dr2;
+  tmp[3] = Registers->context._dr3;
+
+  for (i = 0; i < 4; i++) {
+    if (BX_CPU(processor)->dr[i] != tmp[i]) {
+      if (BX_CPU_THIS_PTR link_opcodes[i] != 0xcc) {
+        BX_CPU(processor)->system_write_byte(BX_CPU(processor)->dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
+        BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;
+      }
+      BX_CPU(processor)->dr[i] = tmp[i];
+    }
+  }
+
   BX_CPU(processor)->dr6.val32 = Registers->context._dr6;
   BX_CPU(processor)->dr7.val32 = Registers->context._dr7;
 	BX_CPU(processor)->cr0.val32 = (uint32_t)Registers->context._cr0;

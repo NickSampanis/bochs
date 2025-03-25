@@ -667,25 +667,28 @@ void BX_CPU_C::prefetch(void)
       BX_CPU_THIS_PTR eipPageWindowSize = (Bit32u)(limit + BX_CPU_THIS_PTR eipPageBias + 1);
     }
   }
-  /*
-  if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7.val32 & 0x3ff) { 
-    if ((BX_CPU_THIS_PTR dr[0] && BX_CPU_THIS_PTR dr[0] == laddr) ||
-          (BX_CPU_THIS_PTR dr[1] && BX_CPU_THIS_PTR dr[1] == laddr) ||
-          (BX_CPU_THIS_PTR dr[2] && BX_CPU_THIS_PTR dr[2] == laddr) ||
-          (BX_CPU_THIS_PTR dr[3] && BX_CPU_THIS_PTR dr[3] == laddr)) {
-      BX_CPU_THIS_PTR async_event = 1;
-      BX_CPU_THIS_PTR debug_trap = BX_DEBUG_SINGLE_STEP_BIT;
+
+  if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7.val32 & 0x3ff) {
+    Bit8u i, mem;
+    for (i = 0; i < 4; i++) {
+      if (BX_CPU_THIS_PTR dr7.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr[i])) {
+        mem = system_read_byte(BX_CPU_THIS_PTR dr[i]);
+        BX_CPU_THIS_PTR link_opcodes[i] = mem;
+        system_write_byte(BX_CPU_THIS_PTR dr[i], 0xcc);
+      }
     }
   }
-  else {
-  */
+  /*
 #if BX_X86_DEBUGGER
   if (hwbreakpoint_check(laddr, BX_HWDebugInstruction, BX_HWDebugInstruction)) {
       if (!bx_dbg.svmstub_enabled)   
         signal_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
-      else
+      else {
+        Bit8u mem = system_read_byte(laddr);
+        if (mem != 0xcc) 
+          system_read_byte(laddr);
         BX_CPU_THIS_PTR async_event = 1;
-      
+      }
     if (! interrupts_inhibited(BX_INHIBIT_DEBUG) || bx_dbg.svmstub_enabled) {
        // The next instruction could already hit a code breakpoint but
        // async_event won't take effect immediatelly.
@@ -712,8 +715,7 @@ void BX_CPU_C::prefetch(void)
     clear_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
   }
 #endif
-  //}
-  
+  */
   BX_CPU_THIS_PTR clear_RF();
 
   bx_address lpf = LPFOf(laddr);

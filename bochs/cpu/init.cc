@@ -197,7 +197,9 @@ void BX_CPU_C::initialize(void)
   }
 
   BX_CPU_THIS_PTR cpuid->get_cpu_extensions(BX_CPU_THIS_PTR ia_extensions_bitmask);
-
+//#ifdef LINK_BREAKPOINTS
+  memset(BX_CPU_THIS_PTR link_opcodes, 0xcc, 4);
+//#endif
 #if BX_SUPPORT_VMX
   BX_CPU_THIS_PTR vmx_extensions_bitmask = BX_CPU_THIS_PTR cpuid->get_vmx_extensions_bitmask();
 #endif

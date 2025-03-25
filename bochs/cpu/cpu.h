@@ -981,7 +981,9 @@ public: // for now...
   bx_dr7_t   dr7;
 
   Bit32u debug_trap; // holds DR6 value (16bit) to be set
-
+//#ifdef LINK_BREAKPOINTS
+  Bit8u  link_opcodes[4];
+//#endif
   /* Control registers */
   bx_cr0_t   cr0;
   bx_address cr2;

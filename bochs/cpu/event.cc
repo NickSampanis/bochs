@@ -317,6 +317,14 @@ bool BX_CPU_C::handleAsyncEvent(void)
 #endif
     if (BX_CPU_THIS_PTR debug_trap & 0xf000) {
       if (bx_dbg.svmstub_enabled) {
+        if (BX_CPU_THIS_PTR dr7.val32 & 0x3ff) {
+          for (Bit8u i = 0; i < 4; i++) {
+            if (BX_CPU_THIS_PTR dr7.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] != 0xcc && get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip) == BX_CPU_THIS_PTR dr[i]) {
+              system_write_byte(BX_CPU_THIS_PTR dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
+              BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;             
+            }
+          }
+        }
         BX_CPU_THIS_PTR debug_trap = 0;
         BX_CPU_THIS_PTR async_event = 0;
         return 1;
