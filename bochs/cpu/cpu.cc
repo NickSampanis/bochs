@@ -668,10 +668,10 @@ void BX_CPU_C::prefetch(void)
     }
   }
 
-  if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7.val32 & 0x3ff) {
+  if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
     Bit8u i, mem;
     for (i = 0; i < 4; i++) {
-      if (BX_CPU_THIS_PTR dr7.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr[i])) {
+      if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr[i])) {
         mem = system_read_byte(BX_CPU_THIS_PTR dr[i]);
         BX_CPU_THIS_PTR link_opcodes[i] = mem;
         system_write_byte(BX_CPU_THIS_PTR dr[i], 0xcc);

@@ -151,7 +151,7 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
   }
 
   BX_CPU(processor)->dr6.val32 = Registers->context._dr6;
-  BX_CPU(processor)->dr7.val32 = Registers->context._dr7;
+  BX_CPU(processor)->dr7_shadow.val32 = Registers->context._dr7;
 	BX_CPU(processor)->cr0.val32 = (uint32_t)Registers->context._cr0;
 	BX_CPU(processor)->cr2 = Registers->context._cr2;
 	BX_CPU(processor)->cr3 = Registers->context._cr3;
@@ -287,7 +287,7 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
   Registers->context._dr2 = BX_CPU(processor)->dr[2];
   Registers->context._dr3 = BX_CPU(processor)->dr[3];
   Registers->context._dr6 = BX_CPU(processor)->dr6.val32; 
-  Registers->context._dr7 = BX_CPU(processor)->dr7.val32;
+  Registers->context._dr7 = BX_CPU(processor)->dr7_shadow.val32;
   Registers->context._cr0 = BX_CPU(processor)->cr0.val32;
   Registers->context._cr2 = BX_CPU(processor)->cr2;
   Registers->context._cr3 = BX_CPU(processor)->cr3;
