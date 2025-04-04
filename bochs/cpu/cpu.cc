@@ -672,9 +672,25 @@ void BX_CPU_C::prefetch(void)
     Bit8u i, mem;
     for (i = 0; i < 4; i++) {
       if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr[i])) {
-        mem = system_read_byte(BX_CPU_THIS_PTR dr[i]);
+        //mem = system_read_byte(BX_CPU_THIS_PTR dr[i]);
+        BX_CPU_THIS_PTR clear_RF();
+        bx_address lpf = LPFOf(laddr);
+        bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(laddr);
+        
+        if ((tlbEntry->lpf == lpf) && (tlbEntry->accessBits & (1 << unsigned(USER_PL))) != 0) {
+          BX_CPU_THIS_PTR pAddrFetchPage = tlbEntry->ppf;
+          BX_CPU_THIS_PTR eipFetchPtr = (Bit8u*) tlbEntry->hostPageAddr;
+        }
+        else {
+          bx_phy_address pAddr = translate_linear(tlbEntry, laddr, USER_PL, BX_EXECUTE);
+          BX_CPU_THIS_PTR pAddrFetchPage = PPFOf(pAddr);
+          BX_CPU_THIS_PTR eipFetchPtr = (const Bit8u*)getHostMemAddr(BX_CPU_THIS_PTR pAddrFetchPage, BX_WRITE);
+        }
+        mem = *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i]));
         BX_CPU_THIS_PTR link_opcodes[i] = mem;
-        system_write_byte(BX_CPU_THIS_PTR dr[i], 0xcc);
+        *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i])) = 0xcc;
+        return;
+        //system_write_byte(BX_CPU_THIS_PTR dr[i], 0xcc);
       }
     }
   }

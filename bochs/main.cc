@@ -143,7 +143,7 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
   for (i = 0; i < 4; i++) {
     if (BX_CPU(processor)->dr[i] != tmp[i]) {
       if (BX_CPU_THIS_PTR link_opcodes[i] != 0xcc) {
-        BX_CPU(processor)->system_write_byte(BX_CPU(processor)->dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
+        //BX_CPU(processor)->system_write_byte(BX_CPU(processor)->dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
         BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;
       }
       BX_CPU(processor)->dr[i] = tmp[i];

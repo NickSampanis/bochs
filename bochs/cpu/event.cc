@@ -320,8 +320,21 @@ bool BX_CPU_C::handleAsyncEvent(void)
         if (BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
           for (Bit8u i = 0; i < 4; i++) {
             if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] != 0xcc && get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip) == BX_CPU_THIS_PTR dr[i]) {
-              system_write_byte(BX_CPU_THIS_PTR dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
-              BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;             
+              //system_write_byte(BX_CPU_THIS_PTR dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
+              Bit8u *hostaddr;
+              bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(BX_CPU_THIS_PTR dr[i]);
+              if ((tlbEntry->lpf == LPFOf(BX_CPU_THIS_PTR dr[i])) && (tlbEntry->accessBits & (1 << unsigned(USER_PL))) != 0) {
+                hostaddr = (Bit8u*)tlbEntry->hostPageAddr;
+              }
+              else {
+                bx_phy_address pAddr = translate_linear(tlbEntry, BX_CPU_THIS_PTR dr[i], USER_PL, BX_EXECUTE);
+                hostaddr = (Bit8u*)getHostMemAddr(PPFOf(pAddr), BX_WRITE);
+              }
+              *((Bit8u*)hostaddr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i])) = BX_CPU_THIS_PTR link_opcodes[i];
+              BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;      
+              BX_CPU_THIS_PTR debug_trap = 0;
+              BX_CPU_THIS_PTR async_event = 0;
+              return 1;       
             }
           }
         }
