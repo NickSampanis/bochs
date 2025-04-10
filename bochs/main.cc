@@ -108,7 +108,6 @@ char *bochsrc_filename = NULL;
 #include "SvmmDbgServer.h"
 //#include "SvmmDebugStub.h"
 #pragma comment(lib, "SvmmDebugStub.lib")  //link SvmmDebugStub.lib
-
 extern void bx_sr_after_restore_state(void);
 
 extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Registers)

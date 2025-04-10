@@ -296,5 +296,7 @@ extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, st
     void (*bochs_restore_snapshot)(const char* folder_name)
 );
 extern "C" BYTE SvmmDbgLoop();
-extern "C" BYTE SvmmDbgCheckAsyncBreakpoint();
+extern "C" BYTE SvmmDbgCheckAsyncBreakpoint(void);
+//extern "C" __declspec(dllimport) BYTE SvmmDbgLoop();
+//extern "C" __declspec(dllimport) BYTE SvmmDbgCheckAsyncBreakpoint(void);
 

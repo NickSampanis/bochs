@@ -106,6 +106,5 @@ typedef struct _DBG_PACKET_PRINT_REQUEST {
 __pragma(pack(pop))
 
 VOID SvmmDbgInit(PCSTR DbgCommandLine);
-BYTE SvmmDbgLoop();
 LONG SvmmDbgSend(USHORT Type, BYTE* Buffer, SIZE_T Size);
 LONG SvmmDbgRecv(USHORT Type, BYTE* Buffer, SIZE_T Size);
