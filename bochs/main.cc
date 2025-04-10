@@ -246,13 +246,34 @@ extern "C" void bochs_restore_snapshot(const char *folder_name)
   bx_sr_after_restore_state();
   SIM->restore_config();
 }
+/*
+extern "C" unsigned long long bochs_translate_linear(unsigned long long gpaAddress)
+{
+  bx_address lpf = LPFOf(laddr);
+  bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(laddr);
+  Bit8u *fetchPtr = 0;
+
+  if (BX_ITLB_ENTRY_OF(laddr)->lpf == lpf)
+    return tlbEntry->ppf;
+  else 
+    return translate_linear(tlbEntry, laddr, USER_PL, BX_READ);
+
+}
+*/
 
 extern "C" unsigned long long bochs_get_host_page(unsigned int processor, unsigned long long gpaAddress)
 {
   unsigned long long page;
 
-  page = BX_CPU(processor)->getHostMemAddr(gpaAddress, BX_READ);
-
+  if (BX_CPU(processor)->in_vmx_guest && BX_CPU_THIS_PTR vmcs.vmexec_ctrls2.EPT_ENABLE()) {
+    page = BX_CPU(processor)->translate_guest_physical(gpaAddress, gpaAddress, true /* laddr_valid */, true /* page walk */,
+                0, 0, 0, BX_READ);
+    page = BX_CPU(processor)->getHostMemAddr(page, BX_READ);
+          
+  }
+  else {
+    page = BX_CPU(processor)->getHostMemAddr(gpaAddress, BX_READ);
+  }
   return page;
 }
 
@@ -386,7 +407,44 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
   Registers->context._tr.long_mode = BX_CPU(processor)->tr.cache.u.segment.l;
   Registers->context._tr.operand_size = BX_CPU(processor)->tr.cache.u.segment.d_b;
   Registers->context._tr.granularity = BX_CPU(processor)->tr.cache.u.segment.g;
+  Registers->vmx_enabled = BX_CPU(processor)->in_vmx;
+  Registers->vmx_in_guest = BX_CPU(processor)->in_vmx_guest;
+  if (Registers->vmx_enabled) {
+    //host
+    Registers->vmcs_host.host_cr0 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR0);
+    Registers->vmcs_host.host_cr3 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR3);
+    Registers->vmcs_host.host_cr4 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR4);
+    Registers->vmcs_host.host_rsp = BX_CPU(processor)->VMread_natural(VMCS_HOST_RSP);
+    Registers->vmcs_host.host_rip = BX_CPU(processor)->VMread_natural(VMCS_HOST_RIP);
 
+    //BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, BX_READ, 0x1, (void *)&Registers->host_saved_regs._rax);
+    /*
+    BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, 0, &Registers->host_saved_regs._rcx);
+    BX_CPU(processor)->access_read_linear(bx_address)(Registers->vmcs_host.host_rsp, 8, 0, 0, &Registers->host_saved_regs._rdx);
+    BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, 0, &Registers->host_saved_regs._r8);
+    BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, 0, &Registers->host_saved_regs._r9);
+    */
+    /*
+    Registers->host_saved_regs._r9, 16) + "\n"
+    Registers->host_saved_regs._r10, 16) + "\n"
+    Registers->host_saved_regs._r11, 16) + "\n"
+    Registers->host_saved_regs._r12, 16) + "\n"
+    Registers->host_saved_regs._r13, 16) + "\n"
+    Registers->host_saved_regs._r14, 16) + "\n"
+    Registers->host_saved_regs._r15, 16) + "\n"
+    Registers->host_saved_regs._rbx, 16) + "\n"
+    Registers->host_saved_regs._rdi, 16) + "\n"
+    Registers->host_saved_regs._rsi, 16) + "\n"
+    */
+    
+    //guest
+    Registers->vmcs_guest.guest_cr0 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR0);
+    Registers->vmcs_guest.guest_cr3 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR3);
+    Registers->vmcs_guest.guest_cr4 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR4);
+    Registers->vmcs_guest.guest_rsp = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RSP);
+    Registers->vmcs_guest.guest_rip = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RIP);
+
+  }
 }
 
 void bx_svmmstub_init(void)

@@ -186,9 +186,14 @@ void BX_CPU_C::cpu_loop(void)
       BX_CPU_CALL_METHOD(i->execute1, (i)); // might iterate repeat instruction
 
       BX_SYNC_TIME_IF_SINGLE_PROCESSOR(0);
+#ifdef WIN32
+      if (SvmmDbgCheckAsyncBreakpoint()) {
+        BX_CPU_THIS_PTR async_event = 1;
+        break;
+      }
+#endif
 
       if (BX_CPU_THIS_PTR async_event) break;
-
       i = getICacheEntry()->i;
       if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
         break;
@@ -215,6 +220,12 @@ void BX_CPU_C::cpu_loop(void)
 #endif
       
       
+#ifdef WIN32
+      if (SvmmDbgCheckAsyncBreakpoint()) {
+        BX_CPU_THIS_PTR async_event = 1;
+        break;
+      }
+#endif
       if (BX_CPU_THIS_PTR async_event) break;
 
       if (++i == last) {

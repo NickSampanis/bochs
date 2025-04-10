@@ -221,6 +221,49 @@ struct ALIGNED(16) fx_layout {
     uint8_t   pad[96];
 };
 
+typedef struct _HOST_STATE
+{
+    uint64_t host_cr0;
+    uint64_t host_cr3;
+    uint64_t host_cr4;
+    uint64_t host_rsp;
+    uint64_t host_rip;
+    /*
+    uint16_t segreg_selector[6];
+
+    uint64_t fs_base;
+    uint64_t gs_base;
+
+    uint64_t gdtr_base;
+    uint64_t idtr_base;
+
+    uint32_t tr_selector;
+    uint64_t tr_base;
+
+    uint64_t sysenter_esp_msr;
+    uint64_t sysenter_eip_msr;
+    uint32_t sysenter_cs_msr;
+
+    uint64_t efer_msr;
+    uint64_t pat_msr;
+    uint64_t ia32_spec_ctrl_msr;
+    */
+} HOST_STATE;
+
+typedef struct _GUEST_STATE
+{
+    uint64_t guest_cr0;
+    uint64_t guest_cr3;
+    uint64_t guest_cr4;
+    uint64_t guest_rsp;
+    uint64_t guest_rip;
+    /*
+    uint32_t activity_state;
+    uint32_t interruptibility_state;
+    uint64_t pdptr[4];
+    */
+} GUEST_STATE;
+
 struct Registers {
     struct vcpu_state_t context;
     struct hax_msr_data msrs;
@@ -237,6 +280,12 @@ struct Registers {
     uint64_t cstar;
     uint64_t fmask;
     uint64_t tsc_aux;
+    HOST_STATE vmcs_host;
+    GUEST_STATE vmcs_guest;
+    struct vcpu_state_t host_saved_regs;
+    struct vcpu_state_t guest_saved_regs;
+    uint8_t vmx_enabled;
+    uint8_t vmx_in_guest;
 };
 extern "C" VOID SvmmDbgInit(PCSTR DbgCommandLine);
 extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, struct Registers* Registers),
@@ -247,3 +296,5 @@ extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, st
     void (*bochs_restore_snapshot)(const char* folder_name)
 );
 extern "C" BYTE SvmmDbgLoop();
+extern "C" BYTE SvmmDbgCheckAsyncBreakpoint();
+
