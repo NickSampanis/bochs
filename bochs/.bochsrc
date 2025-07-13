@@ -219,8 +219,7 @@
 #=======================================================================
 #cpu: model=core2_penryn_t9600, count=1, ips=100000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
 #cpu: cpuid_limit_winnt=0
-#cpu: count=1, ips=100000000, model=tigerlake, reset_on_triple_fault=0, cpuid_limit_winnt=0, ignore_bad_msrs=1, mwait_is_nop=0
-
+#cpu: count=1, ips=100000000, model=corei7_icelake_u, reset_on_triple_fault=0, cpuid_limit_winnt=0, ignore_bad_msrs=1, mwait_is_nop=0
 cpu: count=1, ips=100000000, model=corei7_skylake_x, reset_on_triple_fault=0, cpuid_limit_winnt=0, ignore_bad_msrs=1, mwait_is_nop=0
 
 #corei7_sandy_bridge_2600k

@@ -108,6 +108,7 @@ typedef struct _DBG_PACKET_PRINT_REQUEST {
 __pragma(pack(pop))
 
 #if DBG_STUB_SERVER
+//ON compile time of the dll we need to export
 __declspec(dllexport) VOID SvmmDbgInit(
 	USHORT Port,
 	void (*set_register)(unsigned int processor, struct Registers* Registers),
@@ -122,6 +123,8 @@ __declspec(dllexport) VOID SvmmDbgInit(
 __declspec(dllexport) BYTE SvmmDbgLoop(BYTE CpuNumber);
 __declspec(dllexport) BYTE SvmmDbgCheckAsyncBreakpoint(BYTE CpuNumber);
 #else
+//ON Compile time of the app which is using the stub, we need to import
+//we also ship this header
 #pragma comment(lib, "SvmmDebugStub.lib")  //link SvmmDebugStub.lib
 #ifdef __cplusplus
 extern "C" {

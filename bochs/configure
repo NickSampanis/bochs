@@ -26671,7 +26671,8 @@ case "$target" in
     CXX="$CC"
     #C_OPT="/Zi"   # for debugging
     if test "$speedup_fastcall" = 1; then
-      C_OPT="/O2 /Gr"   # optimize for speed, using fastcall everywhere
+      L_OPT="/debug"
+      C_OPT="/O2 /Gr /Zi"   # optimize for speed, using fastcall everywhere
     else
       C_OPT="/O2"   # optimize for speed, no fastcall
     fi

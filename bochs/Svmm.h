@@ -277,6 +277,7 @@ typedef struct _HOST_STATE
     uint64_t host_cr4;
     uint64_t host_rsp;
     uint64_t host_rip;
+    uint64_t host_ept;
     /*
     uint16_t segreg_selector[6];
 
@@ -306,6 +307,7 @@ typedef struct _GUEST_STATE
     uint64_t guest_cr4;
     uint64_t guest_rsp;
     uint64_t guest_rip;
+    uint64_t guest_efer;
     /*
     uint32_t activity_state;
     uint32_t interruptibility_state;

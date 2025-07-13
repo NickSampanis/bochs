@@ -114,6 +114,53 @@ void bx_pci_bridge_c::init(void)
     BX_PCI_THIS pci_conf[0xf9] = 0x0f;
   } else { // i440FX
     init_pci_conf(0x8086, 0x1237, 0x00, 0x060000, 0x00, 0);
+ #if BX_SUPPORT_SMX
+    
+    //Q35
+    DEV_register_memory_handlers(this, read_mchbar, write_mchbar, MCHBAR, 16 * 1024 - 1);
+    *(Bit16u *)&pci_conf[0xb0] = DPR_GPA >> 16; //TOP Low Usable Ram 
+    *(Bit32u *)&pci_conf[0xac] = DPR_GPA;       //TSEG
+    *(Bit16u *)&pci_conf[0xa2] = 0;             //Top Uppper Usable Ram
+    *(Bit16u *)&pci_conf[0x52] = 2;             //Graphics Controller
+    *(Bit8u *)&pci_conf[0x9E] = 0;              //Extended SMRAM
+    *(Bit16u *)&pci_conf[0x98] = 0x3FF;         //RemapBaseAddressRegister
+    *(Bit16u *)&pci_conf[0x9A] = 0;             //RemapLimitAddressRegister
+    *(Bit64u *)&pci_conf[0x40] = PXPEPBAR;      //4 KB
+    *(Bit32u *)&pci_conf[0x48] = MCHBAR;        //16 KB
+    *(Bit64u *)&pci_conf[0x60] = PCIEXBAR;      //PCI Express Register Range Base Address PCIEXBAR (256 MB)
+    *(Bit64u *)&pci_conf[0x68] = DMIBAR;        //4 KB
+    /*
+    //TIGER LAKE
+    *(Bit32u *)&pci_conf[0xBC] = 0xa0800001;
+    *(Bit32u *)&pci_conf[0xe4] = 0;
+    *(Bit32u *)&pci_conf[0x54] = 0x10;
+    *(Bit32u *)&pci_conf[0x50] = 1;
+    *(Bit32u *)&pci_conf[0x5c] = 3;
+    *(Bit32u *)&pci_conf[0xa8] = 1;
+    *(Bit32u *)&pci_conf[0xb0] = 1;
+    *(Bit32u *)&pci_conf[0xb4] = 1;   
+    
+    //TIGER LAKE
+    *(Bit64u *)&pci_conf[0x40] = PXPEPBAR;      //4 KB
+    *(Bit32u *)&pci_conf[0x48] = MCHBAR;        //16 KB-128 kb hpet has 0xfed00000
+    *(Bit32u *)&pci_conf[0x50] = 0x501;         //Graphics Control
+    *(Bit32u *)&pci_conf[0x54] = 0x10;        //Device Enabled 0x10/0xffff
+    *(Bit32u *)&pci_conf[0x58] = 1;             //Protected Audio
+    *(Bit32u *)&pci_conf[0x5c] = DPR_GPA | 3;   //TSEG
+    *(Bit64u *)&pci_conf[0x60] = PCIEXBAR;      //PCI Express Register Range Base Address PCIEXBAR (256 MB)
+    *(Bit64u *)&pci_conf[0x68] = DMIBAR | 1;     //4 KB
+    *(Bit64u *)&pci_conf[0xA0] = 0x180000000 | 1; //Top Upper Memory 6GB
+    *(Bit64u *)&pci_conf[0xA8] = 0x180000000 | 1; //Top Upper Usable Memory 6GB
+    *(Bit32u *)&pci_conf[0xb0] = 1;               //Top Memory stolen by graphics
+    *(Bit32u *)&pci_conf[0xb4] = 0x1000001;       //Top Memory stolen by TGG
+    *(Bit32u *)&pci_conf[0xb8] = DPR_GPA | 1;
+    *(Bit32u *)&pci_conf[0xbc] = 0xECB00000 | 1;  //
+    */
+    BX_PCI_THIS mei = new bx_management_engine();
+    BX_PCI_THIS mei->init();
+    DEV_register_memory_handlers(this, read_mchbar, write_mchbar, MCHBAR, MCHBAR + 128 * 1024 - 1);
+
+  #endif
   }
 
   // DRAM module setup
@@ -198,6 +245,54 @@ void bx_pci_bridge_c::init(void)
 #endif
 }
 
+#if BX_SUPPORT_SMX   
+void bx_management_engine::init(void)
+{
+  Bit8u devfunc = BX_PCI_DEVICE(22, 0);
+  memset(this->pci_conf, 0, sizeof(this->pci_conf));
+  
+  *(Bit16u *)&pci_conf[0] = 0x8086;
+  *(Bit32u *)&pci_conf[4] = 0x100002;
+  *(Bit8u *)&pci_conf[6] = 0x10;
+  *(Bit32u *)&pci_conf[8] = 0x7800000;
+  *(Bit8u *)&pci_conf[0xe] = 0x80;
+  //*(Bit32u *)&pci_conf[0x10] = MEIMMIO | 4;
+  *(Bit32u *)&pci_conf[0x14] = 0;
+  *(Bit32u *)&pci_conf[0x34] = 0x50;
+  *(Bit16u *)&pci_conf[0x3c] = 0x100;
+  *(Bit16u *)&pci_conf[0x50] = 0x8c01;
+  *(Bit16u *)&pci_conf[0x52] = 0x4003;
+  *(Bit16u *)&pci_conf[0x54] = 8;
+  init_bar_mem(0, 0x1000, read_meibar, write_meibar);
+  DEV_register_pci_handlers(this, &devfunc, BX_PLUGIN_PCI, "ManagementEngine");
+  DEV_register_memory_handlers(this, read_meibar, write_meibar, MEIMMIO, 4 * 1024 - 1);
+}
+
+bx_management_engine::bx_management_engine()
+{
+}
+
+bx_management_engine::~bx_management_engine()
+{
+}
+
+bool bx_management_engine::write_meibar(bx_phy_address a20addr, unsigned len, void *data, void *param)
+{
+  return true;
+}
+
+bool bx_management_engine::read_meibar(bx_phy_address a20addr, unsigned len, void *data, void *param)
+{
+  switch (a20addr & 0xfffUL) {
+    case 0x800:
+      *(Bit32u *)data = 0x98d71120;
+      break;
+  }
+  return true;
+}
+
+#endif
+
   void
 bx_pci_bridge_c::reset(unsigned type)
 {
@@ -239,6 +334,51 @@ bx_pci_bridge_c::reset(unsigned type)
     DEV_mem_set_memory_type(i, 1, 0);
   }
   BX_PCI_THIS pci_conf[0x72] = 0x02;
+ #if BX_SUPPORT_SMX
+    //Q35
+    DEV_register_memory_handlers(this, read_mchbar, write_mchbar, MCHBAR, 16 * 1024 - 1);
+    
+    *(Bit16u *)&pci_conf[0xb0] = DPR_GPA >> 16; //TOP Low Usable Ram 
+    *(Bit32u *)&pci_conf[0xac] = DPR_GPA;       //TSEG
+    *(Bit16u *)&pci_conf[0xa2] = 0;             //Top Uppper Usable Ram
+    *(Bit16u *)&pci_conf[0x52] = 2;             //Graphics Controller
+    *(Bit8u *)&pci_conf[0x9E] = 0;              //Extended SMRAM
+    *(Bit16u *)&pci_conf[0x98] = 0x3FF;         //RemapBaseAddressRegister
+    *(Bit16u *)&pci_conf[0x9A] = 0;             //RemapLimitAddressRegister
+    *(Bit64u *)&pci_conf[0x60] = PCIEXBAR;      //PCI Express Register Range Base Address PCIEXBAR (256 MB)
+    *(Bit64u *)&pci_conf[0x40] = PXPEPBAR;      //4 KB
+    *(Bit32u *)&pci_conf[0x48] = MCHBAR;        //16 KB
+    *(Bit64u *)&pci_conf[0x68] = DMIBAR;        //4 KB
+    /*
+    //TIGER LAKE
+    *(Bit32u *)&pci_conf[0xBC] = 0xa0800001;
+    *(Bit32u *)&pci_conf[0xe4] = 0;
+    *(Bit32u *)&pci_conf[0x54] = 0x10;
+    *(Bit32u *)&pci_conf[0x50] = 1;
+    *(Bit32u *)&pci_conf[0x5c] = 3;
+    *(Bit32u *)&pci_conf[0xa8] = 1;
+    *(Bit32u *)&pci_conf[0xb0] = 1;
+    *(Bit32u *)&pci_conf[0xb4] = 1;
+    */
+    //TIGER LAKE
+    /*
+    *(Bit64u *)&pci_conf[0x40] = PXPEPBAR;      //4 KB
+    *(Bit32u *)&pci_conf[0x48] = MCHBAR;        //16 KB
+    *(Bit32u *)&pci_conf[0x50] = 0x501;         //Graphics Control
+    *(Bit32u *)&pci_conf[0x54] = 0x10;        //Device Enabled 0x10/0xffff
+    *(Bit32u *)&pci_conf[0x58] = 1;             //Protected Audio
+    *(Bit32u *)&pci_conf[0x5c] = DPR_GPA | 3;   //TSEG
+    *(Bit64u *)&pci_conf[0x60] = PCIEXBAR;      //PCI Express Register Range Base Address PCIEXBAR (256 MB)
+    *(Bit64u *)&pci_conf[0x68] = DMIBAR | 1;     //4 KB
+    *(Bit64u *)&pci_conf[0xA0] = 0x180000000 | 1; //Top Upper Memory 6GB
+    *(Bit64u *)&pci_conf[0xA8] = 0x180000000 | 1; //Top Upper Usable Memory 6GB
+    *(Bit32u *)&pci_conf[0xb0] = 1;               //Top Memory stolen by graphics
+    *(Bit32u *)&pci_conf[0xb4] = 0x1000001;       //Top Memory stolen by TGG
+    *(Bit32u *)&pci_conf[0xb8] = DPR_GPA | 1;
+    *(Bit32u *)&pci_conf[0xbc] = 0xECB00000 | 1;  //
+    */
+  #endif
+
 }
 
 void bx_pci_bridge_c::register_state(void)
@@ -733,4 +873,25 @@ void bx_pci_vbridge_c::pci_write_handler(Bit8u address, Bit32u value, unsigned i
     pci_conf[address+i] = value8;
   }
 }
+
+#if BX_SUPPORT_SMX
+bool bx_pci_bridge_c::write_mchbar(bx_phy_address a20addr, unsigned len, void *data, void *param)
+{
+  return true;
+}
+
+bool bx_pci_bridge_c::read_mchbar(bx_phy_address a20addr, unsigned len, void *data, void *param)
+{
+  switch (a20addr){
+    case 0x110B0:
+      *(unsigned long long *)data = 0x180000000;
+      break;
+    case 0x110B8:
+      *(unsigned long long *)data = 0x185f00000;
+      break;
+  }
+  return true;
+}
+#endif
+
 #endif /* BX_SUPPORT_PCI */

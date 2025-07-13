@@ -101,7 +101,11 @@
 #define HPET_FILE_ID 0x46
 #define DSDT_FILE_ID 0x47
 #define SSDT_FILE_ID 0x48
-#define MSR_FILE_ID  0x49
+#define DMAR_FILE_ID 0x49
+#define MSR_FILE_ID  0x4a
+
+#define Q35_HOST_BRIDGE_IOMMU_ADDR  0xfed90000ULL
+
 
 //0x11223344
 //0x44332211
@@ -147,7 +151,13 @@ struct fw_cfg_file {
 
 struct fw_cfg_files {
 	uint32_t count;
-	struct fw_cfg_file cfg_files[10];
+	//abomination
+#if BX_SUPPORT_VTD
+      struct fw_cfg_file cfg_files[11];
+#else
+    struct fw_cfg_file cfg_files[10];
+
+#endif
 };
 struct fw_cfg_dma_access {
 	uint32_t control;
@@ -309,7 +319,7 @@ rsdp_descriptor;
 typedef struct rsdt_descriptor_rev1
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
-	uint32_t                             table_offset_entry [4]; /* Array of pointers to other */
+	uint32_t                             table_offset_entry [5]; /* Array of pointers to other */
 			 /* ACPI tables */
 }
 #if !defined(_MSC_VER)
@@ -507,8 +517,7 @@ typedef struct
 	uint8_t                              io_apic_id;             /* I/O APIC ID */
 	uint8_t                              reserved;               /* Reserved - must be zero */
 	uint32_t                             address;                /* APIC physical address */
-	uint32_t                             interrupt;              /* Global system interrupt where INTI
-			  * lines start */
+	uint32_t                             interrupt;              /* Global system interrupt where INTI* lines start */
 }
 #if !defined(_MSC_VER)
   GCC_ATTRIBUTE((packed))
@@ -527,6 +536,54 @@ typedef struct
   GCC_ATTRIBUTE((packed))
 #endif
 madt_int_override;
+
+#define DMAR_REMAPPING_DRHD 0
+#define DMAR_REMAPPING_RMRR 1
+#define DMAR_REMAPPING_ATSR 2
+#define DMAR_REMAPPING_RHSA 3
+#define DMAR_REMAPPING_RESERVED 4
+#define REMAPPING_INCLUDE_PCI_ALL Ox01
+#define DMAR_SIG "DMAR"
+#define DMAR_INTR_REMAP 0x01
+
+typedef struct  {
+    uint8_t type;
+    uint8_t length;
+    uint16_t reserved;
+    uint8_t enumeration_id;
+    uint8_t start_bus_number;
+    uint16_t path[1];  /* Path starts here */
+}
+#if !defined(_MSC_VER)
+  GCC_ATTRIBUTE((packed))
+#endif
+device_scope;
+
+typedef struct  {
+    uint16_t type;
+    uint16_t length;
+    uint8_t flags;
+    uint8_t reserved;
+    uint16_t segment_number;
+    uint64_t register_base_address;
+    device_scope device_scope_entry[2]; /* Device Scope, One for IOAPIC, One for PCI ALL */
+}
+#if !defined(_MSC_VER)
+  GCC_ATTRIBUTE((packed))
+#endif
+dmar_remapping;
+
+typedef struct {
+    ACPI_TABLE_HEADER_DEF
+    uint8_t host_address_width;
+    uint8_t flags;
+    uint8_t reserved[10];
+    dmar_remapping table_offsets[1]; /* dmar_remapping structure starts here */
+}
+#if !defined(_MSC_VER)
+  GCC_ATTRIBUTE((packed))
+#endif
+acpi_dmar;
 
 #if defined(_MSC_VER) && (_MSC_VER<1300)
 #pragma pack(pop)

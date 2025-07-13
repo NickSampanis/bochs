@@ -53,9 +53,14 @@
 
 /* maximum size of the ISA DMA buffer */
 #define BX_DMA_BUFFER_SIZE 512
-
+#define BX_MAX_PCI_DEVICES 32
+/*
+#if BX_SUPPORT_SMX
+#define BX_MAX_PCI_DEVICES 32
+#else
 #define BX_MAX_PCI_DEVICES 20
-
+#endif
+*/
 typedef Bit32u (*bx_read_handler_t)(void *, Bit32u, unsigned);
 typedef void   (*bx_write_handler_t)(void *, Bit32u, Bit32u, unsigned);
 
@@ -531,7 +536,6 @@ private:
   static void   write_handler(void *this_ptr, Bit32u address, Bit32u value, unsigned io_len);
   BX_DEV_SMF Bit32u read(Bit32u address, unsigned io_len);
   BX_DEV_SMF void   write(Bit32u address, Bit32u value, unsigned io_len);
-
   static Bit32u default_read_handler(void *this_ptr, Bit32u address, unsigned io_len);
   static void   default_write_handler(void *this_ptr, Bit32u address, Bit32u value, unsigned io_len);
 
@@ -667,6 +671,7 @@ BX_CPP_INLINE void DEV_MEM_WRITE_PHYSICAL_DMA(bx_phy_address phy_addr, unsigned 
     len -= remainingInPage;
   }
 }
+
 
 BOCHSAPI extern bx_devices_c bx_devices;
 

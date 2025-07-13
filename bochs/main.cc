@@ -428,6 +428,8 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
     Registers->vmcs_host.host_cr4 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR4);
     Registers->vmcs_host.host_rsp = BX_CPU(processor)->VMread_natural(VMCS_HOST_RSP);
     Registers->vmcs_host.host_rip = BX_CPU(processor)->VMread_natural(VMCS_HOST_RIP);
+    Registers->vmcs_host.host_ept = BX_CPU(processor)->VMread_natural(VMCS_64BIT_CONTROL_EPTPTR);
+    
 
     //BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, BX_READ, 0x1, (void *)&Registers->host_saved_regs._rax);
     /*
@@ -455,6 +457,7 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
     Registers->vmcs_guest.guest_cr4 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR4);
     Registers->vmcs_guest.guest_rsp = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RSP);
     Registers->vmcs_guest.guest_rip = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RIP);
+    Registers->vmcs_guest.guest_efer = BX_CPU(processor)->VMread_natural(VMCS_64BIT_GUEST_IA32_EFER);
 
   }
 }

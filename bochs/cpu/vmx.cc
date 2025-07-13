@@ -4116,11 +4116,25 @@ void BX_CPP_AttrRegparmN(1) BX_CPU_C::INVPCID(bxInstruction_c *i)
 #if BX_SUPPORT_SMX
 #include "txt_config_regs.h"
 #include "smx.h"
+
+typedef struct km_entry_t
+{
+  unsigned int base_low;
+  unsigned int base_high;
+  unsigned int limit_low;
+  unsigned __int16 flag;
+  unsigned __int8 type;
+  unsigned __int8 rsv;
+} km_entry_t;
+
+
 void BX_CPP_AttrRegparmN(1) BX_CPU_C::GETSEC(bxInstruction_c *i)
 {
   capabilities_t capabilities;
+  km_entry_t *km_entry;
   acm_hdr_t *acm_hdr;
-  Bit32u acbase, acsize, dword1, dword2;
+
+  Bit32u acbase, acsize, dword1, dword2, *bpt;
   
 
 #if BX_CPU_LEVEL >= 6
@@ -4187,12 +4201,30 @@ void BX_CPP_AttrRegparmN(1) BX_CPU_C::GETSEC(bxInstruction_c *i)
         || acm_hdr->seg_sel < 8) {
           //TXT_SHUTDOWN("BadACMFormat");
       }
+      //BPT?
+      /*
+      bpt = (Bit32u *)getHostMemAddr(0xFFFFFFC0, BX_READ);
+      *bpt = 0xfff1f000;
+      km_entry = (km_entry_t *)getHostMemAddr(0xfff1f000, BX_READ);
+      km_entry->base_low = 0xfff1f000 + 0x1000;
+      *((Bit8u *)km_entry->base_low + 19) = 0xff;
+      km_entry->type = 0xb;
+      km_entry++;
+      km_entry->base_low = 0xfff1f000 + 0x2000;
+      km_entry->type = 0xc;
+      km_entry++;
+      km_entry->base_low = 0xfff1f000 + 0x3000;
+      km_entry->type = 0x2;
+      */
       //TPM hash acram
 
       //uniproc so we set TXT.STS
       BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PUBLIC].txt_status._raw = 1;
       //dma range memory should be at least 3 MBs
-      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_dpr.size = 3;
+      //BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_dpr.size = DPR_SIZE >> 22; //size in MBs
+      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_status._raw = 1;
+      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_dpr._raw = DPR_ENTRY;
+      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_tpm_supported = 7UL << 16;
       //clear PG-AM-WP
       BX_CPU_THIS_PTR cr0.set_PG(0);
       BX_CPU_THIS_PTR cr0.set_AM(0);

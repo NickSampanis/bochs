@@ -46,6 +46,9 @@
 #if BX_SUPPORT_SMX
 #include "smx.h"
 #endif
+#if BX_SUPPORT_SMX
+#include "vtd.h"
+#endif
 #include <stdlib.h>
 
 BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
@@ -69,6 +72,18 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
 #if BX_SUPPORT_APIC
   lapic = new bx_local_apic_c(this, bx_cpuid);
 #endif
+#if BX_SUPPORT_VTD
+  #if BX_SUPPORT_SMP
+    if (!id)
+      vtd = new bx_vtd_c(this);
+    else
+      vtd = bx_cpu_array[0]->vtd;
+  #else
+      vtd = new bx_vtd_c(this);
+  #endif //BX_SUPPORT_SMP
+#else
+  smx = NULL;
+#endif //BX_SUPPORT_SMX
 #if BX_SUPPORT_SMX
   //base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
   //if (base && SIM->get_param_bool("enabled", base)->get()) {

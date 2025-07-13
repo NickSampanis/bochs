@@ -168,10 +168,12 @@ public:
     bx_tpm2_c(BX_CPU_C *cpu, char *ipv4, int port);
     bool is_selected(bx_phy_address addr);
     void read(bx_phy_address addr, void *data, unsigned len);
+    void read8(bx_phy_address addr, void *data, unsigned len);
     void write(bx_phy_address addr, void *data, unsigned len);
+    void write8(bx_phy_address addr, void *data, unsigned len);
     void tpm_tis_new_active_locality(uint8_t new_active_local);
     void tpm_tis_raise_irq(uint8_t i, uint32_t irqmask);
-    uint32_t tpm_tis_data_read(uint8_t local);
+    uint8_t tpm_tis_data_read(uint8_t local);
     void tpm_tis_abort(void);
     void tpm_tis_prep_abort(uint8_t locty, uint8_t newlocty);
 

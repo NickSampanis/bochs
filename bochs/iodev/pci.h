@@ -38,6 +38,25 @@ enum {
   BX_PCI_INTD = 4
 };
 
+#if BX_SUPPORT_SMX
+#define DPR_SIZE  0x00300000ULL
+#define DPR_GPA   (0xE0000000UL -  DPR_SIZE)
+#define PCIEXBAR  0xE0000000UL
+#define MEIMMIO   0xFEC04000UL
+#define DMIBAR    0xFEDA0000UL
+#define PXPEPBAR  0xFEDA1000UL
+#define MCHBAR    0xFEDC0000UL
+
+class bx_management_engine : public bx_pci_device_c {
+public:
+  virtual void init(void);
+  //virtual void pci_write_handler(Bit8u address, Bit32u value, unsigned io_len);
+  bx_management_engine();
+  virtual ~bx_management_engine();
+  static bool write_meibar(bx_phy_address a20addr, unsigned len, void *data, void *param);
+  static bool read_meibar(bx_phy_address a20addr, unsigned len, void *data, void *param);
+};
+#endif
 class bx_pci_vbridge_c;
 
 class bx_pci_bridge_c : public bx_pci_device_c {
@@ -59,7 +78,10 @@ public:
 #if BX_DEBUGGER
   virtual void debug_dump(int argc, char **argv);
 #endif
-
+#if BX_SUPPORT_SMX
+    static bool write_mchbar(bx_phy_address a20addr, unsigned len, void *data, void *param);
+    static bool read_mchbar(bx_phy_address a20addr, unsigned len, void *data, void *param);
+#endif
 private:
   void smram_control(Bit8u value);
 
@@ -68,6 +90,9 @@ private:
   Bit8u dram_detect;
   Bit32u gart_base;
   bx_pci_vbridge_c *vbridge;
+#if BX_SUPPORT_SMX
+  bx_management_engine *mei;
+#endif
 };
 
 class bx_pci_vbridge_c : public bx_pci_device_c {
@@ -78,7 +103,6 @@ public:
   virtual void reset(unsigned type);
   virtual void register_state(void);
   virtual void after_restore_state(void);
-
   virtual void pci_write_handler(Bit8u address, Bit32u value, unsigned io_len);
 };
 #endif

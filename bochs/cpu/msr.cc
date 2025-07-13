@@ -186,6 +186,14 @@ void BX_CPU_C::init_MSRs()
   msr_desc[BX_MSR_PERFEVTSEL6] = new MSR_Descriptor("MSR_IA32_PERFEVTSEL6", BX_ISA_PENTIUM);
   msr_desc[BX_MSR_PERFEVTSEL7] = new MSR_Descriptor("MSR_IA32_PERFEVTSEL7", BX_ISA_PENTIUM);
 #endif
+#if BX_SUPPORT_SMX
+  msr_desc[0x130] = new MSR_Descriptor("MSR_SMX_UNDOCUMENTED", BX_ISA_SMX);
+  msr_desc[0x1f2] = new MSR_Descriptor("MSR_SMX_GRAPHICS", BX_ISA_SMX);
+  msr_desc[0x1f3] = new MSR_Descriptor("MSR_SMX_DPR", BX_ISA_SMX);
+  msr_desc[0x1f5] = new MSR_Descriptor("MSR_SMX_PRMRR", BX_ISA_SMX);
+  msr_desc[0x2a0] = new MSR_Descriptor("MSR_SMX_PMEM_CONFIG", BX_ISA_SMX);
+  msr_desc[0x2e7] = new MSR_Descriptor("MSR_SMX_CONFIGURATION", BX_ISA_SMX);
+#endif
 }
 
 void BX_CPU_C::destroy_MSRs()
@@ -251,7 +259,26 @@ bool BX_CPP_AttrRegparmN(2) BX_CPU_C::rdmsr(Bit32u index, Bit64u *msr)
       BX_INFO(("RDMSR: read of MSR_IA32_PERFEVTSEL%d", index - BX_MSR_PERFEVTSEL0));
       return handle_unknown_rdmsr(index, msr);
 #endif
-
+#if BX_SUPPORT_SMX
+    case 0x130:
+      val64 = 0x40;
+      break;
+    case 0x1f2:
+      val64 = 6;
+      break;
+    case 0x1f3:
+      val64 = 0xFC000000;
+      break;
+    case 0x1f5:
+      val64 = 0x400;
+      break;
+    case 0x2a0:
+      val64 = 0;
+      break;
+    case 0x2e7:
+      val64 = 1;
+      break;
+#endif
 #if BX_CPU_LEVEL >= 6
     case BX_MSR_SYSENTER_CS:
       val64 = BX_CPU_THIS_PTR msr.sysenter_cs_msr;

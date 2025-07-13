@@ -120,6 +120,7 @@ static fadt_descriptor_rev1 *fadt;
 static facs_descriptor_rev1 *facs;
 static multiple_apic_table *madt;
 static acpi_20_hpet *hpet;
+static acpi_dmar *dmar;
 static Bit8u *ssdt, *dsdt;
 static Bit64u msr_feature_control;
 
@@ -244,7 +245,41 @@ static void build_hpet()
   add_qemu_entry_allocation((Bit8u *)"hpet");
                         
 }
+#if BX_SUPPORT_VTD
 
+static void build_dmar()
+{
+  //acpi_dmar
+  //dmar_remapping
+
+  dmar = (acpi_dmar *)malloc(QEMU_ENTRY_SIZE(sizeof(*dmar)));
+  memset(dmar, 0, sizeof(*dmar));
+  dmar->host_address_width = 36;
+  dmar->flags = DMAR_INTR_REMAP;
+  
+  dmar->table_offsets[0].type = DMAR_REMAPPING_DRHD;
+  dmar->table_offsets[0].flags = 0;
+  dmar->table_offsets[0].segment_number = 0;
+  dmar->table_offsets[0].register_base_address = Q35_HOST_BRIDGE_IOMMU_ADDR;
+
+  dmar->table_offsets[0].device_scope_entry[0].type = 3; //IOAPIC
+  dmar->table_offsets[0].device_scope_entry[0].length = 8;
+  dmar->table_offsets[0].device_scope_entry[0].enumeration_id = 0;
+  dmar->table_offsets[0].device_scope_entry[0].start_bus_number = 0xff; //maybe not
+  dmar->table_offsets[0].device_scope_entry[0].path[0] = 0;
+
+  dmar->table_offsets[0].device_scope_entry[1].type = 2;
+  dmar->table_offsets[0].device_scope_entry[1].length = 8;
+  dmar->table_offsets[0].device_scope_entry[1].enumeration_id = 0;
+  dmar->table_offsets[0].device_scope_entry[1].start_bus_number = 0; //maybe not
+  dmar->table_offsets[0].device_scope_entry[1].path[0] = 0;
+  
+  //TODO add ATS, RMMR?
+  acpi_build_table_header((acpi_table_header *)dmar, (char *)"DMAR", sizeof(*dmar), 1);
+  add_qemu_entry_allocation((Bit8u *)"dmar");
+
+}
+#endif
 
 static void build_madt()
 {
@@ -364,6 +399,7 @@ static void build_rsdt()
   add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[1]), (Bit8u *)"madt");
   add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[2]), (Bit8u *)"ssdt");
   add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[3]), (Bit8u *)"hpet");
+  add_qemu_entry_pointer((Bit8u *)"rsdt", offsetof(rsdt_descriptor_rev1, table_offset_entry[4]), (Bit8u *)"dmar");
   add_qemu_entry_checksum((Bit8u *)"rsdt", 0, sizeof(rsdt_descriptor_rev1), offsetof(rsdt_descriptor_rev1,checksum));
 
 
@@ -421,6 +457,9 @@ void bx_acpi_ctrl_c::init(void)
   acpi_build_processor_ssdt();
   build_hpet();
   build_madt();
+#if BX_SUPPORT_VTD
+  build_dmar();
+#endif
   build_facs();
   build_fadt();
   build_rsdt();
@@ -629,8 +668,13 @@ Bit32u bx_acpi_ctrl_c::read(Bit32u address, unsigned io_len)
     Bit32u cfg_data_kernel_size = SWAP_32(0);
     Bit16u cfg_data_nb_cpus = SWAP_16(0);
     Bit16u cfg_data_boot_menu = SWAP_16(0);
+    //TODO ADD TPM2, VTD
     struct fw_cfg_files cfg_data_files[] = {
+  #if BX_SUPPORT_VTD
+      SWAP_32(11), //number of files- add dmar
+  #else
       SWAP_32(10), //number of files
+  #endif
       SWAP_32(sizeof(QEMU_LOADER_ENTRY) * qemu_idx), SWAP_16(0x40), 0, {"etc/table-loader"},
       SWAP_32(QEMU_ENTRY_SIZE(sizeof(rsdp_descriptor))), SWAP_16(RSDP_FILE_ID), 0, {"rsdp"},
       SWAP_32(QEMU_ENTRY_SIZE(sizeof(rsdt_descriptor_rev1))), SWAP_16(RSDT_FILE_ID), 0, {"rsdt"},
@@ -640,6 +684,9 @@ Bit32u bx_acpi_ctrl_c::read(Bit32u address, unsigned io_len)
       SWAP_32(QEMU_ENTRY_SIZE(sizeof(acpi_20_hpet))), SWAP_16(HPET_FILE_ID), 0, {"hpet"},
       SWAP_32(sizeof(QEMU_LOADER_ENTRY) * 3), SWAP_16(SSDT_FILE_ID), 0, {"ssdt"},
       SWAP_32(QEMU_ENTRY_SIZE(sizeof(AmlCode))), SWAP_16(DSDT_FILE_ID), 0, {"dsdt"},
+#if BX_SUPPORT_VTD
+      SWAP_32(QEMU_ENTRY_SIZE(sizeof(acpi_dmar))), SWAP_16(DMAR_FILE_ID), 0, {"dmar"},
+#endif
       SWAP_32(8), SWAP_16(MSR_FILE_ID), 0, {"etc/msr_feature_control"}
     };
     switch (reg) {
@@ -780,6 +827,9 @@ Bit32u bx_acpi_ctrl_c::read(Bit32u address, unsigned io_len)
             break;
           case SSDT_FILE_ID:
             value = *((Bit8u *)ssdt + BX_ACPI_THIS s.cfg_state++);
+            break;
+          case DMAR_FILE_ID:
+            value = *((Bit8u *)dmar + BX_ACPI_THIS s.cfg_state++);
             break;
           case MSR_FILE_ID:
             value = *((Bit8u *)&msr_feature_control + BX_ACPI_THIS s.cfg_state++);

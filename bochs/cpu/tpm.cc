@@ -151,7 +151,7 @@ const struct tpm_interface TPM2Interface = {
 
 bool bx_tpm2_c::is_selected(bx_phy_address addr)
 {
-  if((addr & ~0xfff) == TPM_TIS_ADDR_BASE) 
+  if((addr & ~0xffff) == TPM_TIS_ADDR_BASE) 
     return true;
   
   return false;
@@ -434,9 +434,9 @@ void bx_tpm2_c::tpm_tis_raise_irq(uint8_t i, uint32_t irqmask)
     }
 }
 
-uint32_t bx_tpm2_c::tpm_tis_data_read(uint8_t local)
+uint8_t bx_tpm2_c::tpm_tis_data_read(uint8_t local)
 {
-    uint32_t ret = TPM_TIS_NO_DATA_BYTE;
+    uint8_t ret = TPM_TIS_NO_DATA_BYTE;
     uint16_t len;
 
     if ((this->local[local].sts & TPM_TIS_STS_DATA_AVAILABLE)) {
@@ -504,14 +504,22 @@ void bx_tpm2_c::tpm_tis_abort(void)
     this->aborting_locty = TPM_TIS_NO_LOCALITY;
 }
 
-
 void bx_tpm2_c::read(bx_phy_address addr, void *data, unsigned len)
 {
+    uint32_t i;
+
+    for (i = 0; i < len; i += 8)
+        read8(addr, (void *)((uint8_t *)data + i), (len > 8) ? 8 : len);
+    
+}
+
+void bx_tpm2_c::read8(bx_phy_address addr, void *data, unsigned len)
+{
     Bit8u i, j, l, shift;
-    Bit32u val, avail, status;
+    Bit64u val, ret, avail, status;
     size_t resp_size;
 
-    val = 0xffffffff;
+    val = 0xffffffffffffffff;
     shift = (addr & 0x3) * 8;
     i = (uint8_t)((addr >> TPM_TIS_LOCALITY_SHIFT) & 0x7);
     if (i >= TPM_TIS_NUM_LOCALITIES)
@@ -595,21 +603,22 @@ void bx_tpm2_c::read(bx_phy_address addr, void *data, unsigned len)
     case TPM_TIS_REG_DATA_XFIFO_END:
         l = len;
         if (this->active_local == i) {
+            /*
             if (l > 4 - (addr & 0x3))
                 l = 4 - (addr & 0x3);
-            
+            */
             val = 0;
             shift = 0;
             while (l > 0) {
                 switch (this->local[i].state) {
                 case TPM_TIS_STATE_COMPLETION:
-                    val = tpm_tis_data_read(i);
+                    ret = tpm_tis_data_read(i);
                     break;
                 default:
-                    val = TPM_TIS_NO_DATA_BYTE;
+                    ret = TPM_TIS_NO_DATA_BYTE;
                     break;
                 }
-                val |= (val << shift);
+                val |= (ret << shift);
                 shift += 8;
                 l--;
             }
@@ -639,6 +648,8 @@ void bx_tpm2_c::read(bx_phy_address addr, void *data, unsigned len)
         case 4:
             *(Bit32u*)data = (val);
             break;
+        case 8:
+            *(Bit64u*)data = (val);
     }
     
     //*(Bit32u*)data = val;
@@ -689,9 +700,17 @@ static void tpm_tis_tpm_send(uint8_t i)
 */
 void bx_tpm2_c::write(bx_phy_address addr, void *data, unsigned len)
 {
+    uint32_t i;
+
+    for (i = 0; i < len; i += 8)
+        write8(addr, (void *)((uint8_t *)data + i), (len > 8) ? 8 : len);
+}
+
+void bx_tpm2_c::write8(bx_phy_address addr, void *data, unsigned len)
+{
     uint8_t shift, active_local, l, newlocty;
     int c, set_new_locty;
-    uint32_t val, mask, status;
+    uint64_t val, mask, status;
     Bit8u i;
 
     set_new_locty = 1;
@@ -699,8 +718,20 @@ void bx_tpm2_c::write(bx_phy_address addr, void *data, unsigned len)
     if (i >= TPM_TIS_NUM_LOCALITIES - 1)
         return;
     shift = (addr & 0x3) * 8;
-    mask = (len == 1) ? 0xff : ((len == 2) ? 0xffff : ~0);
-    val = *(uint32_t*)data;
+    mask = (len == 1) ? 0xff : ((len == 2) ? 0xffff : ~0ULL);
+    switch (len) {
+        case 1:
+            val = *(uint8_t*)data;
+            break;
+        case 2:
+            val = *(uint16_t*)data;
+            break;
+        case 4:
+            val = *(uint32_t*)data;
+            break;
+        case 8:
+            val = *(uint64_t*)data;
+    }
     val &= mask;
 
     if (shift) {
@@ -946,15 +977,14 @@ void bx_tpm2_c::write(bx_phy_address addr, void *data, unsigned len)
 
             val >>= shift;
             l = len;
+            /*
             if (l > 4 - (addr & 0x3)) {
-                /* prevent access beyond FIFO */
                 l = 4 - (addr & 0x3);
             }
-
+            */
             while ((this->local[i].sts & TPM_TIS_STS_EXPECT) && l > 0) {
                 if (this->rw_offset < this->buffer_size) {
-                    this->buffer[this->rw_offset++] =
-                        (uint8_t)val;
+                    this->buffer[this->rw_offset++] = (uint8_t)val;
                     val >>= 8;
                     l--;
                 } else {

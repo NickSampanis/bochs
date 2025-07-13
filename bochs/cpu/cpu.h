@@ -399,6 +399,9 @@ class bx_tpm2_c;
 #if BX_SUPPORT_SMX
 class bx_smx_c;
 #endif
+#if BX_SUPPORT_VTD
+class bx_vtd_c;
+#endif
 // <TAG-TYPE-EXECUTEPTR-START>
 #if BX_USE_CPU_SMF
 typedef void (BX_CPP_AttrRegparmN(1) *BxRepIterationPtr_tR)(bxInstruction_c *);
@@ -1103,6 +1106,9 @@ public: // for now...
 #endif
 #if BX_SUPPORT_SMX
   bx_smx_c *smx;
+#endif
+#if BX_SUPPORT_VTD
+  bx_vtd_c *vtd;
 #endif
   /* SMM base register */
   Bit32u smbase;
