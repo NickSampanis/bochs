@@ -136,7 +136,9 @@ void BX_CPU_C::cpu_loop(void)
 
   BX_CPU_THIS_PTR cpuloop_stack_anchor = &stack_anchor;
 #endif
-
+#ifdef WIN32
+  Bit64u last_count = 0;
+#endif
 #if BX_DEBUGGER
   BX_ASSERT(! bx_dbg.debugger_active);
 #endif
@@ -193,9 +195,12 @@ void BX_CPU_C::cpu_loop(void)
 
       if (BX_CPU_THIS_PTR async_event) break;
 #ifdef WIN32
-      if (SvmmDbgCheckAsyncBreakpoint()) {
-        BX_CPU_THIS_PTR async_event = 1;
-        break;
+      if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
+        if (SvmmDbgCheckAsyncBreakpoint(0)) {
+          BX_CPU_THIS_PTR async_event = 1;
+          break;
+        }
+        last_count = BX_CPU_THIS_PTR icount;
       }
 #endif
       i = getICacheEntry()->i;
@@ -226,9 +231,12 @@ void BX_CPU_C::cpu_loop(void)
       
       if (BX_CPU_THIS_PTR async_event) break;
 #ifdef WIN32
-      if (SvmmDbgCheckAsyncBreakpoint()) {
-        BX_CPU_THIS_PTR async_event = 1;
-        break;
+      if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
+        if (SvmmDbgCheckAsyncBreakpoint(0)) {
+          BX_CPU_THIS_PTR async_event = 1;
+          break;
+        }
+        last_count = BX_CPU_THIS_PTR icount;
       }
 #endif
 
@@ -252,6 +260,9 @@ void BX_CPU_C::cpu_loop(void)
 
 void BX_CPU_C::cpu_run_trace(void)
 {
+#ifdef WIN32
+  static Bit64u last_count = 0;
+#endif
   // check on events which occurred for previous instructions (traps)
   // and ones which are asynchronous to the CPU (hardware interrupts)
   if (BX_CPU_THIS_PTR async_event) {
@@ -275,6 +286,16 @@ void BX_CPU_C::cpu_run_trace(void)
     // clear stop trace magic indication that probably was set by repeat or branch32/64
     BX_CPU_THIS_PTR async_event &= ~BX_ASYNC_EVENT_STOP_TRACE;
   }
+#ifdef WIN32
+
+  if (bx_dbg.svmstub_enabled && last_count + 0x10000 < BX_CPU_THIS_PTR icount) {
+    if (SvmmDbgCheckAsyncBreakpoint(BX_CPU_THIS_PTR bx_cpuid)) {
+      BX_CPU_THIS_PTR async_event = 1;
+    }
+    last_count = BX_CPU_THIS_PTR icount;
+  }
+  
+#endif
 #else
   bxInstruction_c *last = i + (entry->tlen);
 
@@ -292,8 +313,22 @@ void BX_CPU_C::cpu_run_trace(void)
       BX_CPU_THIS_PTR async_event &= ~BX_ASYNC_EVENT_STOP_TRACE;
       break;
     }
+#ifdef WIN32
+    if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
+      if (SvmmDbgCheckAsyncBreakpoint(BX_CPU_THIS_PTR bx_cpuid)) {
+        BX_CPU_THIS_PTR async_event = 1;
+        break;
+      }
+      last_count = BX_CPU_THIS_PTR icount;
+    }
+    
+#endif
+    if (++i == last) 
+      break;
+    
 
-    if (++i == last) break;
+    if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
+      break;
   }
 #endif // BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
 }
@@ -686,8 +721,7 @@ void BX_CPU_C::prefetch(void)
   if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
     Bit8u i, mem;
     for (i = 0; i < 4; i++) {
-      if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr[i])) {
-        //mem = system_read_byte(BX_CPU_THIS_PTR dr[i]);
+      if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr_shadow[i] && BX_CPU_THIS_PTR link_opcodes[i] == 0xcc && LPFOf(laddr) == LPFOf(BX_CPU_THIS_PTR dr_shadow[i])) {
         BX_CPU_THIS_PTR clear_RF();
         bx_address lpf = LPFOf(laddr);
         bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(laddr);
@@ -699,28 +733,24 @@ void BX_CPU_C::prefetch(void)
         else {
           bx_phy_address pAddr = translate_linear(tlbEntry, laddr, USER_PL, BX_EXECUTE);
           BX_CPU_THIS_PTR pAddrFetchPage = PPFOf(pAddr);
-          BX_CPU_THIS_PTR eipFetchPtr = (const Bit8u*)getHostMemAddr(BX_CPU_THIS_PTR pAddrFetchPage, BX_WRITE);
+          BX_CPU_THIS_PTR eipFetchPtr = (const Bit8u*)getHostMemAddr(BX_CPU_THIS_PTR pAddrFetchPage, BX_EXECUTE);
         }
-        mem = *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i]));
-        BX_CPU_THIS_PTR link_opcodes[i] = mem;
-        *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i])) = 0xcc;
+        if (*((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr_shadow[i])) != 0xcc) {
+          mem = *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr_shadow[i]));
+          //set link_opcodes in every cpu
+          for (int j = 0; j < BX_SMP_PROCESSORS; j++)
+            BX_CPU(j)->link_opcodes[i] = mem;
+          *((Bit8u*)BX_CPU_THIS_PTR eipFetchPtr + PAGE_OFFSET(BX_CPU_THIS_PTR dr_shadow[i])) = 0xcc;
+        }
         return;
-        //system_write_byte(BX_CPU_THIS_PTR dr[i], 0xcc);
       }
     }
   }
-  /*
+  
 #if BX_X86_DEBUGGER
   if (hwbreakpoint_check(laddr, BX_HWDebugInstruction, BX_HWDebugInstruction)) {
-      if (!bx_dbg.svmstub_enabled)   
-        signal_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
-      else {
-        Bit8u mem = system_read_byte(laddr);
-        if (mem != 0xcc) 
-          system_read_byte(laddr);
-        BX_CPU_THIS_PTR async_event = 1;
-      }
-    if (! interrupts_inhibited(BX_INHIBIT_DEBUG) || bx_dbg.svmstub_enabled) {
+    signal_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
+    if (! interrupts_inhibited(BX_INHIBIT_DEBUG)) {
        // The next instruction could already hit a code breakpoint but
        // async_event won't take effect immediatelly.
        // Check if the next executing instruction hits code breakpoint
@@ -732,12 +762,7 @@ void BX_CPU_C::prefetch(void)
          if (dr6_bits & BX_DEBUG_TRAP_HIT) {
            BX_ERROR(("#DB: x86 code breakpoint caught"));
            BX_CPU_THIS_PTR debug_trap |= dr6_bits;
-           if (!bx_dbg.svmstub_enabled)
-            exception(BX_DB_EXCEPTION, 0);
-           else {
-            BX_CPU_THIS_PTR debug_trap |= BX_DEBUG_SINGLE_STEP_BIT;
-            return;
-           }
+           exception(BX_DB_EXCEPTION, 0);
          }
        }
     }
@@ -746,7 +771,7 @@ void BX_CPU_C::prefetch(void)
     clear_event(BX_EVENT_CODE_BREAKPOINT_ASSIST);
   }
 #endif
-  */
+  
   BX_CPU_THIS_PTR clear_RF();
 
   bx_address lpf = LPFOf(laddr);

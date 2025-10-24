@@ -104,6 +104,7 @@ BOCHSAPI BX_CPU_C bx_cpu;
 BOCHSAPI BX_MEM_C bx_mem;
 
 char *bochsrc_filename = NULL;
+#ifdef WIN32
 #include "Svmm.h"
 #include "SvmmDbgServer.h"
 //#include "SvmmDebugStub.h"
@@ -112,7 +113,8 @@ extern void bx_sr_after_restore_state(void);
 
 extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Registers)
 {
-  Bit64u tmp[4], i;
+  Bit64u tmp[4], j, i;
+
   BX_CPU(processor)->gen_reg[0].rrx = Registers->context._rax;
   BX_CPU(processor)->gen_reg[1].rrx = Registers->context._rcx;
   BX_CPU(processor)->gen_reg[2].rrx = Registers->context._rdx;
@@ -139,18 +141,22 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
   tmp[2] = Registers->context._dr2;
   tmp[3] = Registers->context._dr3;
 
-  for (i = 0; i < 4; i++) {
-    if (BX_CPU(processor)->dr[i] != tmp[i]) {
-      if (BX_CPU_THIS_PTR link_opcodes[i] != 0xcc) {
-        //BX_CPU(processor)->system_write_byte(BX_CPU(processor)->dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
-        BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;
+  //set dr in every cpu
+  for (j = 0; j < BX_SMP_PROCESSORS; j++) {
+    for (i = 0; i < 4; i++) {
+      if (BX_CPU(j)->dr_shadow[i] != tmp[i]) {
+        if (BX_CPU(j)->link_opcodes[i] != 0xcc) 
+          BX_CPU(j)->link_opcodes[i] = 0xcc;
+        BX_CPU(j)->dr_shadow[i] = tmp[i];
       }
-      BX_CPU(processor)->dr[i] = tmp[i];
     }
+    BX_CPU(j)->dr7_shadow.val32 = Registers->context._dr7;
+    BX_CPU(j)->dr6.val32 = Registers->context._dr6;
   }
-
-  BX_CPU(processor)->dr6.val32 = Registers->context._dr6;
-  BX_CPU(processor)->dr7_shadow.val32 = Registers->context._dr7;
+  BX_CPU(processor)->last_accessed_addr = Registers->last_accessed_addr;
+  
+  //BX_CPU(processor)->dr7.val32 = Registers->context._dr7;
+  
 	BX_CPU(processor)->cr0.val32 = (uint32_t)Registers->context._cr0;
 	BX_CPU(processor)->cr2 = Registers->context._cr2;
 	BX_CPU(processor)->cr3 = Registers->context._cr3;
@@ -208,18 +214,18 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
       Registers->context._gs.ar & (1 << 7), Registers->context._gs.selector, 
       Registers->context._gs.base,	Registers->context._gs.limit, 
       Registers->context._gs.ar);
-  BX_CPU_THIS_PTR TLB_flush();
+  BX_CPU(processor)->TLB_flush();
 
 #if BX_CPU_LEVEL >= 4
-  BX_CPU_THIS_PTR handleAlignmentCheck();
+  BX_CPU(processor)->handleAlignmentCheck();
 #endif
 
-  BX_CPU_THIS_PTR handleCpuModeChange();
+  BX_CPU(processor)->handleCpuModeChange();
 
 #if BX_CPU_LEVEL >= 6
-  BX_CPU_THIS_PTR handleSseModeChange();
+  BX_CPU(processor)->handleSseModeChange();
 #if BX_SUPPORT_AVX
-  BX_CPU_THIS_PTR handleAvxModeChange();
+  BX_CPU(processor)->handleAvxModeChange();
 #endif
 #endif
 }
@@ -227,7 +233,7 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
 extern "C" void bochs_flush_tlb(unsigned int processor) 
 {
   BX_CPU(processor)->TLB_flush();
-  BX_CPU_THIS_PTR iCache.flushICacheEntries();
+  BX_CPU(processor)->iCache.flushICacheEntries();
 }
 
 extern "C" void bochs_take_snapshot(const char *folder_name)
@@ -264,7 +270,7 @@ extern "C" unsigned long long bochs_get_host_page(unsigned int processor, unsign
 {
   unsigned long long page;
 
-  if (BX_CPU(processor)->in_vmx_guest && BX_CPU_THIS_PTR vmcs.vmexec_ctrls2.EPT_ENABLE()) {
+  if (BX_CPU(processor)->in_vmx_guest && BX_CPU(processor)->vmcs.vmexec_ctrls2.EPT_ENABLE()) {
     page = BX_CPU(processor)->translate_guest_physical(gpaAddress, gpaAddress, true /* laddr_valid */, true /* page walk */,
                 0, 0, 0, BX_READ);
     page = BX_CPU(processor)->getHostMemAddr(page, BX_READ);
@@ -302,17 +308,17 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
   ((unsigned int)(BX_CPU(processor)->get_PF() != 0) << 2UL) |
   ((unsigned int)(BX_CPU(processor)->get_CF() != 0) << 0UL);
   BX_CPU(processor)->eflags = Registers->context._rflags;
-  Registers->context._dr0 = BX_CPU(processor)->dr[0];
-  Registers->context._dr1 = BX_CPU(processor)->dr[1];
-  Registers->context._dr2 = BX_CPU(processor)->dr[2];
-  Registers->context._dr3 = BX_CPU(processor)->dr[3];
+  Registers->context._dr0 = BX_CPU(processor)->dr_shadow[0];
+  Registers->context._dr1 = BX_CPU(processor)->dr_shadow[1];
+  Registers->context._dr2 = BX_CPU(processor)->dr_shadow[2];
+  Registers->context._dr3 = BX_CPU(processor)->dr_shadow[3];
   Registers->context._dr6 = BX_CPU(processor)->dr6.val32; 
   Registers->context._dr7 = BX_CPU(processor)->dr7_shadow.val32;
   Registers->context._cr0 = BX_CPU(processor)->cr0.val32;
   Registers->context._cr2 = BX_CPU(processor)->cr2;
   Registers->context._cr3 = BX_CPU(processor)->cr3;
   Registers->context._cr4 = BX_CPU(processor)->cr4.val32;
-  
+  Registers->cpu_number = processor;
   Registers->xcr0 = BX_CPU(processor)->xcr0.val32;
   Registers->tsc_aux = BX_CPU(processor)->msr.tsc_aux;
   Registers->tsc = BX_CPU(processor)->get_TSC();
@@ -408,6 +414,7 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
   Registers->context._tr.granularity = BX_CPU(processor)->tr.cache.u.segment.g;
   Registers->vmx_enabled = BX_CPU(processor)->in_vmx;
   Registers->vmx_in_guest = BX_CPU(processor)->in_vmx_guest;
+  Registers->last_accessed_addr = BX_CPU(processor)->last_accessed_addr;
   if (Registers->vmx_enabled) {
     //host
     Registers->vmcs_host.host_cr0 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR0);
@@ -446,27 +453,83 @@ extern "C" void bochs_get_registers(unsigned int processor, struct Registers* Re
   }
 }
 
-void bx_svmmstub_init(void)
+unsigned long long bochs_write_physical(unsigned int processor, unsigned long long gpaAddress, unsigned char *data, unsigned long long size)
 {
-  unsigned char dbgState;
+  BX_CPU(processor)->access_write_physical(gpaAddress, size, data);
 
-  SvmmDbgInit("50001");
-  SvmmDbgBochsInit(bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot);
-  dbgState = SvmmDbgLoop();
-
-  /* CPU loop */
-  while (1) {
-    if (dbgState == DBG_TYPE_STEP_INTO)
-      BX_CPU_THIS_PTR set_TF(BX_CPU_THIS_PTR eflags);
-    else
-      BX_CPU_THIS_PTR clear_TF();
-    bx_cpu.cpu_loop();
-    //SIM->refresh_vga();
-    dbgState = SvmmDbgLoop();
-    //BX_CPU(bx_cpu)->
-  }
+  return size;
 }
 
+unsigned long long bochs_read_physical(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size)
+{
+  BX_CPU(processor)->access_read_physical(gpaAddress, size, data);
+
+  return size;
+}
+
+
+void bx_svmmstub_init(void)
+{
+
+  SvmmDbgInit("50001");
+  SvmmDbgBochsInit(bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot, bochs_write_physical, bochs_read_physical);
+  //CreateThread(NULL, 0, SvmmDbgCheckAsyncBreakpointThread, NULL, 0, &threadID);
+  BX_CPU(0)->dbgState = SvmmDbgLoop(0);
+
+  if (BX_SMP_PROCESSORS == 1) {
+    /* CPU loop */
+    while (1) {
+      if (BX_CPU(0)->dbgState == DBG_TYPE_STEP_INTO)
+        BX_CPU(0)->set_TF(BX_CPU(0)->eflags);
+      else
+        BX_CPU(0)->clear_TF();
+      BX_CPU(0)->cpu_loop();
+      //SIM->refresh_vga();
+      BX_CPU(0)->dbgState = SvmmDbgLoop(0);
+      //BX_CPU(bx_cpu)->
+    }
+  }
+  else {
+    static int quantum = SIM->get_param_num(BXPN_SMP_QUANTUM)->get();
+    Bit32u executed = 0, processor = 0;
+    bool run = true;
+
+    if (setjmp(BX_CPU_C::jmp_buf_env)) {
+      // can get here only from exception function or VMEXIT
+      BX_CPU(processor)->icount++;
+      run = false;
+    }
+    while (1) {
+      if (BX_CPU(processor)->dbgState == DBG_TYPE_STEP_INTO)
+        BX_CPU(processor)->set_TF(BX_CPU(processor)->eflags);
+      else
+        BX_CPU(processor)->clear_TF();
+      // do some instructions in each processor
+      if (run)
+        BX_CPU(processor)->cpu_run_trace();
+        //BX_CPU(processor)->cpu_loop();
+      else
+        run = true;
+      if (BX_CPU(processor)->svmm_event) {
+        BX_CPU(processor)->svmm_event = 0; 
+        BX_CPU(processor)->dbgState = SvmmDbgLoop(processor);
+      }
+      // see how many instruction it was able to run
+      Bit32u n = (Bit32u)(BX_CPU(processor)->get_icount() - BX_CPU(processor)->icount_last_sync);
+      if (n == 0) 
+        n = quantum; // the CPU was halted
+      executed += n;
+      if (++processor == BX_SMP_PROCESSORS) {
+        processor = 0;
+        BX_TICKN(executed / BX_SMP_PROCESSORS);
+        executed %= BX_SMP_PROCESSORS;
+      }
+
+      BX_CPU(processor)->icount_last_sync = BX_CPU(processor)->get_icount();
+    }
+  }
+}
+#endif
 
 size_t bx_get_timestamp(char *buffer)
 {

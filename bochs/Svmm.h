@@ -286,6 +286,8 @@ struct Registers {
     struct vcpu_state_t guest_saved_regs;
     uint8_t vmx_enabled;
     uint8_t vmx_in_guest;
+    uint64_t last_accessed_addr;
+    uint8_t cpu_number;
 };
 extern "C" VOID SvmmDbgInit(PCSTR DbgCommandLine);
 extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, struct Registers* Registers),
@@ -293,10 +295,13 @@ extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, st
     unsigned long long (*get_host_page)(unsigned int processor, unsigned long long gpaAddress),
     void (*flush_tlb)(unsigned int processor),
     void (*take_snapshot)(const char* folder_name),
-    void (*bochs_restore_snapshot)(const char* folder_name)
+    void (*bochs_restore_snapshot)(const char* folder_name),
+    unsigned long long(*write_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size),
+    unsigned long long(*read_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size)
+
 );
-extern "C" BYTE SvmmDbgLoop();
-extern "C" BYTE SvmmDbgCheckAsyncBreakpoint(void);
+extern "C" BYTE SvmmDbgLoop(BYTE CpuNumber);
+extern "C" BYTE SvmmDbgCheckAsyncBreakpoint(BYTE CpuNumber);
 //extern "C" __declspec(dllimport) BYTE SvmmDbgLoop();
 //extern "C" __declspec(dllimport) BYTE SvmmDbgCheckAsyncBreakpoint(void);
 

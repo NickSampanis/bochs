@@ -1625,9 +1625,9 @@ Bit32u BX_CPU_C::code_breakpoint_match(bx_address laddr)
   if (BX_CPU_THIS_PTR get_RF())
     return 0;
   if (bx_dbg.svmstub_enabled) {
-    Bit8u mem = system_read_byte(laddr);
-    if (mem == 0xcc)
-      return 0xf000;
+      Bit8u mem = system_read_byte(laddr);
+      if (mem == 0xcc)
+        return 0xf000;
   }
   if (BX_CPU_THIS_PTR dr7.get_bp_enabled()) {
     Bit32u dr6_bits = hwdebug_compare(laddr, 1, BX_HWDebugInstruction, BX_HWDebugInstruction);
@@ -1639,6 +1639,30 @@ Bit32u BX_CPU_C::code_breakpoint_match(bx_address laddr)
 
 void BX_CPU_C::hwbreakpoint_match(bx_address laddr, unsigned len, unsigned rw)
 {
+  unsigned opa;
+
+  if (!(rw & 1) && BX_CPU_THIS_PTR dr7_shadow.val32 & 0x22220000) 
+    opa = BX_HWDebugMemRW;
+  else if (rw & 1 && BX_CPU_THIS_PTR dr7_shadow.val32 & 0x11110000)
+    opa = BX_HWDebugMemW;
+  else
+    return;
+  if (BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
+    for (Bit8u i = 0; i < 4; i++) {
+      if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr_shadow[i] 
+        && laddr == BX_CPU_THIS_PTR dr_shadow[i]) {
+        //write || read-write
+        if ((opa == BX_HWDebugMemW && BX_CPU_THIS_PTR dr7_shadow.val32 & (1ULL << (16 + i * 4)))
+            || (opa == BX_HWDebugMemRW && BX_CPU_THIS_PTR dr7_shadow.val32 & (1ULL << (17 + i * 4)))) {
+            BX_CPU_THIS_PTR debug_trap |= BX_DEBUG_TRAP_HIT;
+            if (bx_dbg.svmstub_enabled)
+              BX_CPU_THIS_PTR last_accessed_addr = laddr;
+            BX_CPU_THIS_PTR async_event = 1;
+        }
+      }
+    }
+  }
+  /*
   if (BX_CPU_THIS_PTR dr7.get_bp_enabled()) {
     // Only compare debug registers if any breakpoints are enabled
     unsigned opa, opb, write = rw & 1;
@@ -1652,10 +1676,13 @@ void BX_CPU_C::hwbreakpoint_match(bx_address laddr, unsigned len, unsigned rw)
       BX_CPU_THIS_PTR debug_trap |= dr6_bits;
       if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_TRAP_HIT) {
         BX_ERROR(("#DB: Code/Data breakpoint hit - report debug trap on next instruction"));
+        if (bx_dbg.svmstub_enabled)
+          BX_CPU_THIS_PTR last_accessed_addr = laddr;
         BX_CPU_THIS_PTR async_event = 1;
       }
     }
   }
+  */
 }
 
 Bit32u BX_CPU_C::hwdebug_compare(bx_address laddr_0, unsigned size,

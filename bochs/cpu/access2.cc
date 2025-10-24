@@ -41,6 +41,9 @@ BX_CPU_C::write_linear_byte(unsigned s, bx_address laddr, Bit8u data)
       Bit8u *hostAddr = (Bit8u*) (hostPageAddr | pageOffset);
       pageWriteStampTable.decWriteStamp(pAddr, 1);
       *hostAddr = data;
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 1, BX_WRITE);
+#endif
       return;
     }
   }
@@ -68,6 +71,9 @@ BX_CPU_C::write_linear_word(unsigned s, bx_address laddr, Bit16u data)
       Bit16u *hostAddr = (Bit16u*) (hostPageAddr | pageOffset);
       pageWriteStampTable.decWriteStamp(pAddr, 2);
       WriteHostWordToLittleEndian(hostAddr, data);
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 2, BX_WRITE);
+#endif
       return;
     }
   }
@@ -95,6 +101,9 @@ BX_CPU_C::write_linear_dword(unsigned s, bx_address laddr, Bit32u data)
       Bit32u *hostAddr = (Bit32u*) (hostPageAddr | pageOffset);
       pageWriteStampTable.decWriteStamp(pAddr, 4);
       WriteHostDWordToLittleEndian(hostAddr, data);
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 4, BX_WRITE);
+#endif
       return;
     }
   }
@@ -122,6 +131,9 @@ BX_CPU_C::write_linear_qword(unsigned s, bx_address laddr, Bit64u data)
       Bit64u *hostAddr = (Bit64u*) (hostPageAddr | pageOffset);
       pageWriteStampTable.decWriteStamp(pAddr, 8);
       WriteHostQWordToLittleEndian(hostAddr, data);
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 8, BX_WRITE);
+#endif
       return;
     }
   }
@@ -148,6 +160,9 @@ BX_CPU_C::write_linear_xmmword(unsigned s, bx_address laddr, const BxPackedXmmRe
       pageWriteStampTable.decWriteStamp(pAddr, 16);
       WriteHostQWordToLittleEndian(hostAddr,   data->xmm64u(0));
       WriteHostQWordToLittleEndian(hostAddr+1, data->xmm64u(1));
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 16, BX_WRITE);
+#endif
       return;
     }
   }
@@ -172,6 +187,9 @@ BX_CPU_C::write_linear_xmmword_aligned(unsigned s, bx_address laddr, const BxPac
       pageWriteStampTable.decWriteStamp(pAddr, 16);
       WriteHostQWordToLittleEndian(hostAddr,   data->xmm64u(0));
       WriteHostQWordToLittleEndian(hostAddr+1, data->xmm64u(1));
+#if BX_X86_DEBUGGER
+    hwbreakpoint_match(laddr, 16, BX_WRITE);
+#endif
       return;
     }
   }
@@ -202,6 +220,9 @@ BX_CPU_C::write_linear_ymmword(unsigned s, bx_address laddr, const BxPackedYmmRe
       for (unsigned n = 0; n < 4; n++) {
         WriteHostQWordToLittleEndian(hostAddr+n, data->ymm64u(n));
       }
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 32, BX_WRITE);
+#endif
       return;
     }
   }
@@ -227,6 +248,9 @@ BX_CPU_C::write_linear_ymmword_aligned(unsigned s, bx_address laddr, const BxPac
       for (unsigned n = 0; n < 4; n++) {
         WriteHostQWordToLittleEndian(hostAddr+n, data->ymm64u(n));
       }
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 32, BX_WRITE);
+#endif
       return;
     }
   }
@@ -257,6 +281,9 @@ BX_CPU_C::write_linear_zmmword(unsigned s, bx_address laddr, const BxPackedZmmRe
       for (unsigned n = 0; n < 8; n++) {
         WriteHostQWordToLittleEndian(hostAddr+n, data->zmm64u(n));
       }
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 64, BX_WRITE);
+#endif
       return;
     }
   }
@@ -282,6 +309,9 @@ BX_CPU_C::write_linear_zmmword_aligned(unsigned s, bx_address laddr, const BxPac
       for (unsigned n = 0; n < 8; n++) {
         WriteHostQWordToLittleEndian(hostAddr+n, data->zmm64u(n));
       }
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 64, BX_WRITE);
+#endif
       return;
     }
   }
@@ -348,6 +378,9 @@ BX_CPU_C::read_linear_byte(unsigned s, bx_address laddr)
       Bit8u *hostAddr = (Bit8u*) (hostPageAddr | pageOffset);
       data = *hostAddr;
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 1, tlbEntry->get_memtype(), BX_READ, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 1, BX_READ);
+#endif
       return data;
     }
   }
@@ -377,6 +410,9 @@ BX_CPU_C::read_linear_word(unsigned s, bx_address laddr)
       Bit16u *hostAddr = (Bit16u*) (hostPageAddr | pageOffset);
       data = ReadHostWordFromLittleEndian(hostAddr);
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 2, tlbEntry->get_memtype(), BX_READ, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 2, BX_READ);
+#endif
       return data;
     }
   }
@@ -406,6 +442,9 @@ BX_CPU_C::read_linear_dword(unsigned s, bx_address laddr)
       Bit32u *hostAddr = (Bit32u*) (hostPageAddr | pageOffset);
       data = ReadHostDWordFromLittleEndian(hostAddr);
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 4, tlbEntry->get_memtype(), BX_READ, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 4, BX_READ);
+#endif
       return data;
     }
   }
@@ -435,6 +474,9 @@ BX_CPU_C::read_linear_qword(unsigned s, bx_address laddr)
       Bit64u *hostAddr = (Bit64u*) (hostPageAddr | pageOffset);
       data = ReadHostQWordFromLittleEndian(hostAddr);
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 8, tlbEntry->get_memtype(), BX_READ, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 8, BX_READ);
+#endif
       return data;
     }
   }
@@ -461,6 +503,9 @@ BX_CPU_C::read_linear_xmmword(unsigned s, bx_address laddr, BxPackedXmmRegister 
       data->xmm64u(0) = ReadHostQWordFromLittleEndian(hostAddr);
       data->xmm64u(1) = ReadHostQWordFromLittleEndian(hostAddr+1);
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 16, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 16, BX_READ);
+#endif
       return;
     }
   }
@@ -483,6 +528,9 @@ BX_CPU_C::read_linear_xmmword_aligned(unsigned s, bx_address laddr, BxPackedXmmR
       data->xmm64u(0) = ReadHostQWordFromLittleEndian(hostAddr);
       data->xmm64u(1) = ReadHostQWordFromLittleEndian(hostAddr+1);
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 16, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 16, BX_READ);
+#endif
       return;
     }
   }
@@ -510,6 +558,9 @@ BX_CPU_C::read_linear_ymmword(unsigned s, bx_address laddr, BxPackedYmmRegister 
       for (unsigned n=0; n < 4; n++) {
         data->ymm64u(n) = ReadHostQWordFromLittleEndian(hostAddr+n);
       }
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 32, BX_READ);
+#endif
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 32, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
       return;
     }
@@ -534,6 +585,9 @@ BX_CPU_C::read_linear_ymmword_aligned(unsigned s, bx_address laddr, BxPackedYmmR
         data->ymm64u(n) = ReadHostQWordFromLittleEndian(hostAddr+n);
       }
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 32, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 32, BX_READ);
+#endif
       return;
     }
   }
@@ -562,6 +616,9 @@ BX_CPU_C::read_linear_zmmword(unsigned s, bx_address laddr, BxPackedZmmRegister 
         data->zmm64u(n) = ReadHostQWordFromLittleEndian(hostAddr+n);
       }
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 64, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 64, BX_READ);
+#endif
       return;
     }
   }
@@ -585,6 +642,9 @@ BX_CPU_C::read_linear_zmmword_aligned(unsigned s, bx_address laddr, BxPackedZmmR
         data->zmm64u(n) = ReadHostQWordFromLittleEndian(hostAddr+n);
       }
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, (tlbEntry->ppf | pageOffset), 64, tlbEntry->get_memtype(), BX_READ, (Bit8u*) data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 64, BX_READ);
+#endif
       return;
     }
   }
@@ -626,6 +686,9 @@ BX_CPU_C::read_RMW_linear_byte(unsigned s, bx_address laddr)
       BX_CPU_THIS_PTR address_xlation.memtype1 = tlbEntry->get_memtype();
 #endif
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, pAddr, 1, tlbEntry->get_memtype(), BX_RW, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 1, BX_RW);
+#endif
       return data;
     }
   }
@@ -661,6 +724,9 @@ BX_CPU_C::read_RMW_linear_word(unsigned s, bx_address laddr)
       BX_CPU_THIS_PTR address_xlation.memtype1 = tlbEntry->get_memtype();
 #endif
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, pAddr, 2, tlbEntry->get_memtype(), BX_RW, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 2, BX_RW);
+#endif
       return data;
     }
   }
@@ -696,6 +762,9 @@ BX_CPU_C::read_RMW_linear_dword(unsigned s, bx_address laddr)
       BX_CPU_THIS_PTR address_xlation.memtype1 = tlbEntry->get_memtype();
 #endif
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, pAddr, 4, tlbEntry->get_memtype(), BX_RW, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 4, BX_RW);
+#endif
       return data;
     }
   }
@@ -731,6 +800,9 @@ BX_CPU_C::read_RMW_linear_qword(unsigned s, bx_address laddr)
       BX_CPU_THIS_PTR address_xlation.memtype1 = tlbEntry->get_memtype();
 #endif
       BX_NOTIFY_LIN_MEMORY_ACCESS(laddr, pAddr, 8, tlbEntry->get_memtype(), BX_RW, (Bit8u*) &data);
+#if BX_X86_DEBUGGER
+      hwbreakpoint_match(laddr, 8, BX_RW);
+#endif
       return data;
     }
   }

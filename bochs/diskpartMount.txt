@@ -1,4 +1,4 @@
-select vdisk file="C:\Users\user\git\bochs_edk3\bochs\c.vhd"
+select vdisk file="C:\Users\user\git\bochs_edk3\bochs\hv.vhd"
 attach vdisk
 select partition 2
 assign letter=T

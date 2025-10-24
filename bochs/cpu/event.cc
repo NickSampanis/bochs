@@ -315,32 +315,44 @@ bool BX_CPU_C::handleAsyncEvent(void)
     // Pages with code breakpoints always have async_event=1 and therefore come here
     BX_CPU_THIS_PTR debug_trap |= code_breakpoint_match(get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip));
 #endif
+    
     if (BX_CPU_THIS_PTR debug_trap & 0xf000) {
       if (bx_dbg.svmstub_enabled) {
         if (BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
           for (Bit8u i = 0; i < 4; i++) {
-            if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr[i] && BX_CPU_THIS_PTR link_opcodes[i] != 0xcc && get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip) == BX_CPU_THIS_PTR dr[i]) {
-              //system_write_byte(BX_CPU_THIS_PTR dr[i], BX_CPU_THIS_PTR link_opcodes[i]);
-              Bit8u *hostaddr;
-              bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(BX_CPU_THIS_PTR dr[i]);
-              if ((tlbEntry->lpf == LPFOf(BX_CPU_THIS_PTR dr[i])) && (tlbEntry->accessBits & (1 << unsigned(USER_PL))) != 0) {
-                hostaddr = (Bit8u*)tlbEntry->hostPageAddr;
+            if (BX_CPU_THIS_PTR dr7_shadow.val32 & (1UL << (i * 2)) && BX_CPU_THIS_PTR dr_shadow[i] && BX_CPU_THIS_PTR link_opcodes[i] != 0xcc 
+            && get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip) == BX_CPU_THIS_PTR dr_shadow[i]) {
+              //execute
+              if (!(BX_CPU_THIS_PTR dr7_shadow.val32 & (2ULL << (16 + i * 4)))) {
+                Bit8u *hostaddr;
+                bx_TLB_entry *tlbEntry = BX_ITLB_ENTRY_OF(BX_CPU_THIS_PTR dr_shadow[i]);
+                if ((tlbEntry->lpf == LPFOf(BX_CPU_THIS_PTR dr_shadow[i])) && (tlbEntry->accessBits & (1 << unsigned(USER_PL))) != 0) {
+                  hostaddr = (Bit8u*)tlbEntry->hostPageAddr;
+                }
+                else {
+                  bx_phy_address pAddr = translate_linear(tlbEntry, BX_CPU_THIS_PTR dr_shadow[i], USER_PL, BX_EXECUTE);
+                  hostaddr = (Bit8u*)getHostMemAddr(PPFOf(pAddr), BX_WRITE);
+                }
+                *((Bit8u*)hostaddr + PAGE_OFFSET(BX_CPU_THIS_PTR dr_shadow[i])) = BX_CPU_THIS_PTR link_opcodes[i];
+                for (int j = 0; j < BX_SMP_PROCESSORS; j++)
+                  BX_CPU(j)->link_opcodes[i] = 0xcc;      
+                BX_CPU_THIS_PTR iCache.flushICacheEntries();
               }
-              else {
-                bx_phy_address pAddr = translate_linear(tlbEntry, BX_CPU_THIS_PTR dr[i], USER_PL, BX_EXECUTE);
-                hostaddr = (Bit8u*)getHostMemAddr(PPFOf(pAddr), BX_WRITE);
-              }
-              *((Bit8u*)hostaddr + PAGE_OFFSET(BX_CPU_THIS_PTR dr[i])) = BX_CPU_THIS_PTR link_opcodes[i];
-              BX_CPU_THIS_PTR link_opcodes[i] = 0xcc;      
               BX_CPU_THIS_PTR debug_trap = 0;
               BX_CPU_THIS_PTR async_event = 0;
+              BX_CPU_THIS_PTR svmm_event = 1;
+              
               return 1;       
             }
           }
         }
-        BX_CPU_THIS_PTR debug_trap = 0;
-        BX_CPU_THIS_PTR async_event = 0;
-        return 1;
+        //INT3 bp
+        if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT || (system_read_byte(get_laddr(BX_SEG_REG_CS, BX_CPU_THIS_PTR prev_rip)) == 0xcc)) {
+          BX_CPU_THIS_PTR debug_trap = 0;
+          BX_CPU_THIS_PTR async_event = 0;
+          BX_CPU_THIS_PTR svmm_event = 1;
+          return 1;
+        }
       }
       exception(BX_DB_EXCEPTION, 0); // no error, not interrupt
     }

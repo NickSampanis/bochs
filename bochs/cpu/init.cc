@@ -32,6 +32,9 @@
 #if BX_SUPPORT_APIC
 #include "apic.h"
 #endif
+#if BX_SUPPORT_TPM2
+#include "tpm.h"
+#endif
 
 #if BX_SUPPORT_AMX
 #include "avx/amx.h"
@@ -59,7 +62,16 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
 #if BX_SUPPORT_APIC
   lapic = new bx_local_apic_c(this, bx_cpuid);
 #endif
-
+#if BX_SUPPORT_TPM2
+#if BX_SUPPORT_SMP
+  if (!id)
+    tpm2 = new bx_tpm2_c(this);
+  else
+    tpm2 = bx_cpu_array[0]->tpm2;
+#else
+  tpm2 = new bx_tpm2_c(this);
+#endif
+#endif
   for (unsigned n=0;n<BX_ISA_EXTENSIONS_ARRAY_SIZE;n++)
     ia_extensions_bitmask[n] = 0;
 
@@ -199,6 +211,9 @@ void BX_CPU_C::initialize(void)
   BX_CPU_THIS_PTR cpuid->get_cpu_extensions(BX_CPU_THIS_PTR ia_extensions_bitmask);
 //#ifdef LINK_BREAKPOINTS
   memset(BX_CPU_THIS_PTR link_opcodes, 0xcc, 4);
+//#endif
+//#ifdef SVMM
+  BX_CPU_THIS_PTR dbgState = -1;
 //#endif
 #if BX_SUPPORT_VMX
   BX_CPU_THIS_PTR vmx_extensions_bitmask = BX_CPU_THIS_PTR cpuid->get_vmx_extensions_bitmask();
@@ -837,7 +852,10 @@ BX_CPU_C::~BX_CPU_C()
 #if BX_SUPPORT_APIC
   delete lapic;
 #endif
-
+#if BX_SUPPORT_TPM2
+  if (!bx_cpuid)
+    delete tpm2;
+#endif
 #if BX_SUPPORT_AMX
   delete amx;
 #endif
@@ -1005,16 +1023,21 @@ void BX_CPU_C::reset(unsigned source)
 
   // DR0 - DR7 (Debug Registers)
 #if BX_CPU_LEVEL >= 3
-  for (n=0; n<4; n++)
+  for (n=0; n<4; n++) {
     BX_CPU_THIS_PTR dr[n] = 0;
+//#ifdef LINK_BREAKPOINTS
+    if (!BX_CPU_THIS_PTR bx_cpuid)
+      BX_CPU_THIS_PTR dr_shadow[n] = 0;
+//#endif
+  }
 #endif
-
 #if BX_CPU_LEVEL >= 5
   BX_CPU_THIS_PTR dr6.set32(0xFFFF0FF0);
 #else
   BX_CPU_THIS_PTR dr6.set32(0xFFFF1FF0);
 #endif
-  BX_CPU_THIS_PTR dr7.set32(0x00000400);
+  if (!BX_CPU_THIS_PTR bx_cpuid)
+    BX_CPU_THIS_PTR dr7.set32(0x00000400);
 
   BX_CPU_THIS_PTR in_smm = false;
 

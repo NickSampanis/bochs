@@ -393,6 +393,7 @@ class BX_MEM_C;
 class bxInstruction_c;
 class bx_local_apic_c;
 class AMX;
+class bx_tpm2_c;
 
 // <TAG-TYPE-EXECUTEPTR-START>
 #if BX_USE_CPU_SMF
@@ -982,8 +983,13 @@ public: // for now...
 
   Bit32u debug_trap; // holds DR6 value (16bit) to be set
 //#ifdef LINK_BREAKPOINTS
+  bx_address dr_shadow[4]; /* DR0-DR3 */
   bx_dr7_t   dr7_shadow;
   Bit8u  link_opcodes[4];
+  Bit64u last_accessed_addr;
+//#endif
+//ifdef SVMM
+  unsigned char dbgState;
 //#endif
   /* Control registers */
   bx_cr0_t   cr0;
@@ -1088,7 +1094,9 @@ public: // for now...
 #if BX_SUPPORT_APIC
   bx_local_apic_c *lapic;
 #endif
-
+#if BX_SUPPORT_TPM2
+  bx_tpm2_c *tpm2;
+#endif
   /* SMM base register */
   Bit32u smbase;
 
@@ -1183,7 +1191,7 @@ public: // for now...
   Bit32u  pending_event;
   Bit32u  event_mask;
   Bit32u  async_event; // keep 32-bit because of BX_ASYNC_EVENT_STOP_TRACE
-
+  Bit8u  svmm_event;
   BX_SMF BX_CPP_INLINE void signal_event(Bit32u event) {
     BX_CPU_THIS_PTR pending_event |= event;
     if (! is_masked_event(event)) BX_CPU_THIS_PTR async_event = 1;
