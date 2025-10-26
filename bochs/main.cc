@@ -104,6 +104,10 @@ BOCHSAPI BX_CPU_C bx_cpu;
 BOCHSAPI BX_MEM_C bx_mem;
 
 char *bochsrc_filename = NULL;
+#ifdef __linux__
+#include <signal.h>
+#include <sys/mman.h>
+#endif
 #ifdef WIN32
 #include "Svmm.h"
 #include "SvmmDbgServer.h"
@@ -1773,6 +1777,16 @@ void bx_init_hardware()
      if (hFlashMap == INVALID_HANDLE_VALUE) 
       BX_PANIC(("Failed to open bios/OVMF_VARS.fd"));
     BX_MEM(0)->flash_buffer = (Bit8u *)MapViewOfFileEx(hFlashMap, FILE_MAP_WRITE, 0, 0, 0, NULL);
+
+#elif defined(__linux__)
+    int hFlash = open("bios/OVMF_VARS.fd", O_RDWR);
+    if (hFlash < 0) 
+      BX_PANIC("Failed to open bios/OVMF_VARS.fd");
+    size_t fsz = lseek(hFlash, 0, SEEK_END);
+    BX_MEM(0)->flash_buffer = (Bit8u *)mmap(NULL, fsz, PROT_READ | PROT_WRITE, MAP_SHARED, hFlash, 0);
+    if (hFlashMap == MAP_FAILED) 
+      BX_PANIC(("Failed to map bios/OVMF_VARS.fd"));
+    
 #endif
 //#endif
 

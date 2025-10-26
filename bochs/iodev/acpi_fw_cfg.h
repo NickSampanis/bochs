@@ -3,7 +3,11 @@
 #define BX_IODEV_FW_CFG_H
 #include <stdint.h>
 
-//#include "standard-headers/linux/types.h"
+#ifdef __linux__
+#include <cstddef.h>
+#define UINT8 uint8_t
+#define UINT32 uint32_t
+#endif
 
 #define FW_CFG_ACPI_DEVICE_ID	"QEMU0002"
 

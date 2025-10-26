@@ -55,22 +55,29 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
   // in the constructor because the only access to it is via
   // global variables which aren't initialized quite yet.
   char name[16], logname[16];
+  int port;
   sprintf(name, "CPU%x", bx_cpuid);
   sprintf(logname, "cpu%x", bx_cpuid);
   put(logname, name);
 
+  port = 0;
 #if BX_SUPPORT_APIC
   lapic = new bx_local_apic_c(this, bx_cpuid);
 #endif
 #if BX_SUPPORT_TPM2
+  bx_list_c *base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
+  if (base && SIM->get_param_bool("enabled", base)->get()) {
+    if (SIM->get_param_num("port", base))
+      port = SIM->get_param_num("port", base)->get();
 #if BX_SUPPORT_SMP
-  if (!id)
-    tpm2 = new bx_tpm2_c(this);
-  else
-    tpm2 = bx_cpu_array[0]->tpm2;
+    if (!id)
+      tpm2 = new bx_tpm2_c(this, port);
+    else
+      tpm2 = bx_cpu_array[0]->tpm2;
 #else
-  tpm2 = new bx_tpm2_c(this);
+  tpm2 = new bx_tpm2_c(this, port);
 #endif
+  }
 #endif
   for (unsigned n=0;n<BX_ISA_EXTENSIONS_ARRAY_SIZE;n++)
     ia_extensions_bitmask[n] = 0;

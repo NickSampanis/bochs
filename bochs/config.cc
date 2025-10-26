@@ -650,6 +650,19 @@ void bx_init_options()
       "Sets the number of HT (Intel(R) HyperThreading Technology) threads per core for multiprocessor emulation",
       1, BX_CPU_HT_THREADS_LIMIT,
       1);
+#if BX_SUPPORT_TPM2
+    bx_list_c *tpm2 = new bx_list_c(cpu_param, "tpm2", "Trusted Platform Module");
+
+    enabled = new bx_param_bool_c(tpm2, "enabled", "Enable TPM2", "", 0);
+  //enabled->set_enabled(BX_GDBSTUB);
+  new bx_param_num_c(tpm2,
+    "port",
+    "Port",
+    "TCP port for TPM2 Simulator",
+    0, 65535,
+    2321);
+
+#endif
   nthreads->set_enabled(BX_CPU_HT_THREADS_LIMIT > 1);
   nthreads->set_options(bx_param_c::CI_ONLY);
   new bx_param_num_c(cpu_param,
@@ -3137,6 +3150,20 @@ static int parse_line_formatted(const char *context, int num_params, char *param
       }
     }
   }
+#if BX_SUPPORT_TPM2
+  else if (!strcmp(params[0], "tpm2")) {
+    base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
+    for (i=1; i<num_params; i++) {
+      if (!strncmp(params[i], "enabled=", 8)) {
+        if (params[i][8] == '1') 
+          SIM->get_param_num("enabled", base)->set(atoi(&params[i][8]));
+      }
+      else if (!strncmp(params[i], "port=", 5)) {
+        SIM->get_param_num("port", base)->set(atoi(&params[i][5]));
+      }
+    }
+  }
+#endif
   else if (!strcmp(params[0], "gdbstub")) {
 #if BX_GDBSTUB
     if (num_params < 2) {

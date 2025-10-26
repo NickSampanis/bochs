@@ -89,7 +89,7 @@ PSOCKADDR get_local_ipv4(void)
     return addr;
 }
 
-bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu)
+bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu, int port)
 {
     char ipStr[INET6_ADDRSTRLEN];
     ULONG c, result;
@@ -118,9 +118,9 @@ bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu)
     addr = get_local_ipv4();
     getnameinfo(addr, sizeof(SOCKADDR), ipStr, sizeof(ipStr), NULL, 0, NI_NUMERICHOST);
     free(addr);
-    result = TPM2Initialize((CHAR *)ipStr, 2321);
+    result = TPM2Initialize((CHAR *)ipStr, port);
     if (result) {
-        BX_ERROR(("Error in TPM2Initialize connecting to %s:2321", ipStr));
+        BX_ERROR(("Error in TPM2Initialize connecting to %s:%d", ipStr, port));
         exit(-1);    
     }
 }
