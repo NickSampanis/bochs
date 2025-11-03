@@ -97,13 +97,14 @@ void BX_CPP_AttrRegparmN(1) BX_CPU_C::INT1(bxInstruction_c *i)
 
 void BX_CPP_AttrRegparmN(1) BX_CPU_C::INT3(bxInstruction_c *i)
 {
+#if BX_SVMM_STUB
   if (bx_dbg.svmstub_enabled) {
     RIP = PREV_RIP;
     BX_CPU_THIS_PTR async_event = 1;
     BX_CPU_THIS_PTR iCache.breakLinks();
     return;
   }
-
+#endif
   BX_INSTR_FAR_BRANCH_ORIGIN();
 
   // INT 3 is not IOPL sensitive

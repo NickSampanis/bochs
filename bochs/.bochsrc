@@ -674,9 +674,9 @@ ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
 #   ata3-master: type=disk, mode=flat, path=483M.sample, cylinders=1024, heads=15, spt=63
 #   ata3-slave:  type=cdrom, path=iso.sample, status=inserted
 #=======================================================================
-#ata0-master: type=disk, path="hv.vhd", mode=dll
-#ata0-slave: type=cdrom, path="E:\iso\attoxen\attoxen.iso", status=inserted
-ata0-master: type=disk, path="C:\Users\user\git\secureLaunch\hv.vhd", mode=dll
+ata0-master: type=disk, path="hv.vhd", mode=dll
+#ata0-slave: type=cdrom, path="attoxen.iso", status=inserted
+#ata0-master: type=disk, path="C:\Users\user\git\secureLaunch\hv.vhd", mode=dll
 
 #ata0-master: type=disk, path="E:\VM\Windows10_19h1_uefi_empty.vhd", mode=dll
 #ata0-master: type=disk, mode=flat, path="30M.sample"
@@ -1204,8 +1204,9 @@ debugger_log: -
 # WARNING: This Bochs feature is not maintained yet and may fail.
 #=======================================================================
 #gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
-svmmstub: enabled=1
-tpm2: enabled=1
+#svmmstub: enabled=1
+tpm2: enabled=1, ip=127.0.0.1, port=2321
+#hypervisor: type=hyperv
 #=======================================================================
 # MAGIC_BREAK:
 # This enables the "magic breakpoint" feature when using the debugger.

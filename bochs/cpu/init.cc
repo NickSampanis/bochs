@@ -54,13 +54,14 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
   // in case of SMF, you cannot reference any member data
   // in the constructor because the only access to it is via
   // global variables which aren't initialized quite yet.
-  char name[16], logname[16];
+  char name[16], logname[16], *ipv4;
   int port;
   sprintf(name, "CPU%x", bx_cpuid);
   sprintf(logname, "cpu%x", bx_cpuid);
   put(logname, name);
 
   port = 0;
+  ipv4 = NULL;
 #if BX_SUPPORT_APIC
   lapic = new bx_local_apic_c(this, bx_cpuid);
 #endif
@@ -69,15 +70,20 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
   if (base && SIM->get_param_bool("enabled", base)->get()) {
     if (SIM->get_param_num("port", base))
       port = SIM->get_param_num("port", base)->get();
+    if (SIM->get_param_string("ip", base))
+      ipv4 = SIM->get_param_string("ip", base)->getptr();
+
 #if BX_SUPPORT_SMP
     if (!id)
-      tpm2 = new bx_tpm2_c(this, port);
+      tpm2 = new bx_tpm2_c(this, ipv4, port);
     else
       tpm2 = bx_cpu_array[0]->tpm2;
 #else
-  tpm2 = new bx_tpm2_c(this, port);
+  tpm2 = new bx_tpm2_c(this, ipv4, port);
 #endif
   }
+  else
+    tpm2 = NULL;
 #endif
   for (unsigned n=0;n<BX_ISA_EXTENSIONS_ARRAY_SIZE;n++)
     ia_extensions_bitmask[n] = 0;

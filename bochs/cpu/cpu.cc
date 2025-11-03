@@ -195,6 +195,7 @@ void BX_CPU_C::cpu_loop(void)
 
       if (BX_CPU_THIS_PTR async_event) break;
 #ifdef WIN32
+#if BX_SVMM_STUB
       if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
         if (SvmmDbgCheckAsyncBreakpoint(0)) {
           BX_CPU_THIS_PTR async_event = 1;
@@ -202,6 +203,7 @@ void BX_CPU_C::cpu_loop(void)
         }
         last_count = BX_CPU_THIS_PTR icount;
       }
+#endif
 #endif
       i = getICacheEntry()->i;
       if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
@@ -231,6 +233,8 @@ void BX_CPU_C::cpu_loop(void)
       
       if (BX_CPU_THIS_PTR async_event) break;
 #ifdef WIN32
+#if BX_SVMM_STUB
+
       if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
         if (SvmmDbgCheckAsyncBreakpoint(0)) {
           BX_CPU_THIS_PTR async_event = 1;
@@ -238,6 +242,7 @@ void BX_CPU_C::cpu_loop(void)
         }
         last_count = BX_CPU_THIS_PTR icount;
       }
+#endif
 #endif
 
       if (++i == last) {
@@ -256,10 +261,125 @@ void BX_CPU_C::cpu_loop(void)
   }  // while (1)
 }
 
+// step_device() implementation. This steps the device and time emulation in
+// Bochs. This is used very frequently to make sure things like timer interrupts
+// are delivered to the guest.
+void BX_CPU_C::step_device(Bit64u steps) {
+  // Flush TLBs, this also resets stack and prefetch cache
+  // We do this here to make sure our dirty bits get updated. If TLBs are
+  // present it's possible to execute in the emulator and skip the call to
+  // write physical memory which would cause us to miss setting dirty bits.
+  BX_CPU_THIS_PTR TLB_flush();
+
+  while(steps) {
+    // Check for async events and handle them if there are any
+    if (BX_CPU_THIS_PTR async_event) {
+      if (BX_CPU_THIS_PTR handleAsyncEvent()) {
+        // If request to return to caller ASAP.
+        return;
+      }
+    }
+
+    // We actually tick one at a time even though we could tick in bulk. This
+    // allows us to check for async events more frequently and it makes for a
+    // lower latency hypervisor experience. This could be tweaked higher for
+    // more performance, at the cost of usability.
+    //
+    // Tuning this further might cause interrupts to get queued up without being
+    // handled so it could actually potentially cause corruption in the guest.
+    // Be careful changing things like this.
+    bx_pc_system.tickn(1);
+    steps--;
+  }
+}
+
+Bit64u BX_CPU_C::cpu_run_instruction(Bit64u steps) {
+  // Flush TLBs, this also resets stack and prefetch cache
+  // We do this here to make sure our dirty bits get updated. If TLBs are
+  // present it's possible to execute in the emulator and skip the call to
+  // write physical memory which would cause us to miss setting dirty bits.
+  
+  BX_CPU_THIS_PTR TLB_flush();
+
+  Bit64u stop_time = BX_CPU_THIS_PTR icount + steps;
+
+  // Step while we have steps... duh
+  while(BX_CPU_THIS_PTR icount < stop_time) {
+    // check on events which occurred for previous instructions (traps)
+    // and ones which are asynchronous to the CPU (hardware interrupts)
+    if (BX_CPU_THIS_PTR async_event) {
+      if (BX_CPU_THIS_PTR handleAsyncEvent()) {
+        // If request to return to caller ASAP.
+        return BX_CPU_THIS_PTR icount;
+      }
+    }
+
+    bxICacheEntry_c *entry = BX_CPU_THIS_PTR getICacheEntry();
+    bxInstruction_c *i = entry->i;
+
+#if BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
+    {
+      // want to allow changing of the instruction inside instrumentation callback
+      BX_INSTR_BEFORE_EXECUTION(BX_CPU_ID, i);
+      RIP += i->ilen();
+      // when handlers chaining is enabled this single call will execute entire trace
+      BX_CPU_CALL_METHOD(i->execute1, (i)); // might iterate repeat instruction
+      BX_SYNC_TIME_IF_SINGLE_PROCESSOR(0);
+
+      if (BX_CPU_THIS_PTR async_event) continue;
+
+      i = BX_CPU_THIS_PTR getICacheEntry()->i;
+    }
+#else // BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS == 0
+
+    bxInstruction_c *last = i + (entry->tlen);
+
+    {
+
+#if BX_DEBUGGER
+      if (BX_CPU_THIS_PTR trace)
+        debug_disasm_instruction(BX_CPU_THIS_PTR prev_rip);
+#endif
+
+      // want to allow changing of the instruction inside instrumentation callback
+      BX_INSTR_BEFORE_EXECUTION(BX_CPU_ID, i);
+      RIP += i->ilen();
+      BX_CPU_CALL_METHOD(i->execute1, (i)); // might iterate repeat instruction
+      BX_CPU_THIS_PTR prev_rip = RIP; // commit new RIP
+      BX_INSTR_AFTER_EXECUTION(BX_CPU_ID, i);
+      BX_CPU_THIS_PTR icount++;
+
+      BX_SYNC_TIME_IF_SINGLE_PROCESSOR(0);
+
+      // note instructions generating exceptions never reach this point
+#if BX_DEBUGGER || BX_GDBSTUB
+      if (dbg_instruction_epilog()) return BX_CPU_THIS_PTR icount;
+#endif
+
+      if (BX_CPU_THIS_PTR async_event) continue;
+
+      if (++i == last) {
+        entry = BX_CPU_THIS_PTR getICacheEntry();
+        i = entry->i;
+        last = i + (entry->tlen);
+      }
+    }
+#endif
+
+    // clear stop trace magic indication that probably was set by repeat or branch32/64
+    BX_CPU_THIS_PTR async_event &= ~BX_ASYNC_EVENT_STOP_TRACE;
+  }
+  return BX_CPU_THIS_PTR icount;
+  
+  //return 0;
+}
 #if BX_SUPPORT_SMP
+
+
 
 void BX_CPU_C::cpu_run_trace(void)
 {
+  
 #ifdef WIN32
   static Bit64u last_count = 0;
 #endif
@@ -274,7 +394,7 @@ void BX_CPU_C::cpu_run_trace(void)
 
   bxICacheEntry_c *entry = getICacheEntry();
   bxInstruction_c *i = entry->i;
-
+/*
 #if BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
   // want to allow changing of the instruction inside instrumentation callback
   BX_INSTR_BEFORE_EXECUTION(BX_CPU_ID, i);
@@ -287,6 +407,7 @@ void BX_CPU_C::cpu_run_trace(void)
     BX_CPU_THIS_PTR async_event &= ~BX_ASYNC_EVENT_STOP_TRACE;
   }
 #ifdef WIN32
+#if BX_SVMM_STUB
 
   if (bx_dbg.svmstub_enabled && last_count + 0x10000 < BX_CPU_THIS_PTR icount) {
     if (SvmmDbgCheckAsyncBreakpoint(BX_CPU_THIS_PTR bx_cpuid)) {
@@ -294,9 +415,10 @@ void BX_CPU_C::cpu_run_trace(void)
     }
     last_count = BX_CPU_THIS_PTR icount;
   }
-  
+#endif
 #endif
 #else
+*/
   bxInstruction_c *last = i + (entry->tlen);
 
   for(;;) {
@@ -314,6 +436,8 @@ void BX_CPU_C::cpu_run_trace(void)
       break;
     }
 #ifdef WIN32
+#if BX_SVMM_STUB
+
     if (bx_dbg.svmstub_enabled && last_count + 0x1000 < BX_CPU_THIS_PTR icount) {
       if (SvmmDbgCheckAsyncBreakpoint(BX_CPU_THIS_PTR bx_cpuid)) {
         BX_CPU_THIS_PTR async_event = 1;
@@ -321,7 +445,7 @@ void BX_CPU_C::cpu_run_trace(void)
       }
       last_count = BX_CPU_THIS_PTR icount;
     }
-    
+#endif
 #endif
     if (++i == last) 
       break;
@@ -330,7 +454,7 @@ void BX_CPU_C::cpu_run_trace(void)
     if (BX_CPU_THIS_PTR debug_trap & BX_DEBUG_SINGLE_STEP_BIT)
       break;
   }
-#endif // BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
+//#endif // BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
 }
 
 #endif
@@ -717,7 +841,7 @@ void BX_CPU_C::prefetch(void)
       BX_CPU_THIS_PTR eipPageWindowSize = (Bit32u)(limit + BX_CPU_THIS_PTR eipPageBias + 1);
     }
   }
-
+#if BX_SVMM_STUB
   if (bx_dbg.svmstub_enabled && BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
     Bit8u i, mem;
     for (i = 0; i < 4; i++) {
@@ -746,6 +870,7 @@ void BX_CPU_C::prefetch(void)
       }
     }
   }
+#endif
   
 #if BX_X86_DEBUGGER
   if (hwbreakpoint_check(laddr, BX_HWDebugInstruction, BX_HWDebugInstruction)) {

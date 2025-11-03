@@ -1030,6 +1030,15 @@ bx_phy_address BX_CPU_C::translate_linear_load_PDPTR(bx_address laddr, unsigned 
 #endif
   {
     pdptr = BX_CPU_THIS_PTR PDPTR_CACHE.entry[index];
+    if (!(pdptr & 1)) {
+      bx_phy_address cr3_val = BX_CPU_THIS_PTR cr3 & 0xffffffe0;
+      bx_phy_address pdpe_entry_addr = (bx_phy_address) (cr3_val | (index << 3));
+      pdptr = read_physical_qword(pdpe_entry_addr, BX_MEMTYPE_INVALID, AccessReason(BX_PDPTR0_ACCESS + index));
+      if (pdptr & 0x1) {
+        BX_CPU_THIS_PTR PDPTR_CACHE.entry[index] = pdptr;
+        return pdptr;
+      }
+    }
   }
 
   if (! (pdptr & 0x1)) {
@@ -2502,7 +2511,7 @@ bx_hostpageaddr_t BX_CPU_C::getHostMemAddr(bx_phy_address paddr, unsigned rw)
     return 0; // Vetoed!  APIC address space
 #endif
 #if BX_SUPPORT_TPM2
-if (BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
+if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     return 0;
   }
 #endif
@@ -2524,7 +2533,7 @@ void BX_CPU_C::access_read_physical(bx_phy_address paddr, unsigned len, void *da
   }
 #endif
 #if BX_SUPPORT_TPM2
-if (BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
+if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     BX_CPU_THIS_PTR tpm2->read(paddr, data, len);
     return;
   }
@@ -2580,7 +2589,7 @@ void BX_CPU_C::access_write_physical(bx_phy_address paddr, unsigned len, void *d
   }
 #endif
 #if BX_SUPPORT_TPM2
-if (BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
+if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     BX_CPU_THIS_PTR tpm2->write(paddr, data, len);
     return;
   }

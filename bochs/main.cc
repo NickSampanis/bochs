@@ -109,6 +109,8 @@ char *bochsrc_filename = NULL;
 #include <sys/mman.h>
 #endif
 #ifdef WIN32
+#include <intrin.h>
+#include "bxthread.h"
 #include "Svmm.h"
 #include "SvmmDbgServer.h"
 //#include "SvmmDebugStub.h"
@@ -172,7 +174,7 @@ extern "C" void bochs_set_registers(unsigned int processor, struct Registers* Re
 	BX_CPU(processor)->msr.sysenter_cs_msr = (uint32_t)Registers->context._sysenter_cs;
 	BX_CPU(processor)->msr.sysenter_esp_msr = Registers->context._sysenter_esp;
 	BX_CPU(processor)->msr.sysenter_eip_msr = Registers->context._sysenter_eip;
-	BX_CPU(processor)->msr.pat._u64 = Registers->pat;
+	//BX_CPU(processor)->msr.pat._u64 = Registers->pat;
 	BX_CPU(processor)->efer.val32 = (uint32_t)Registers->context._efer;
 	BX_CPU(processor)->msr.star = Registers->star;
 	BX_CPU(processor)->msr.lstar = Registers->lstar;
@@ -533,6 +535,641 @@ void bx_svmmstub_init(void)
     }
   }
 }
+
+#include <WinHvEmulation.h>
+#include <WinHvPlatform.h>
+#pragma comment(lib, "WinHvEmulation.lib")  
+#pragma comment(lib, "WinHvPlatform.lib")
+
+
+__declspec(align(64))
+struct _whvp_registers {
+  WHV_REGISTER_VALUE _rax;
+  WHV_REGISTER_VALUE _rcx;
+  WHV_REGISTER_VALUE _rdx;
+  WHV_REGISTER_VALUE _rbx;
+  WHV_REGISTER_VALUE _rsp;
+  WHV_REGISTER_VALUE _rbp;
+  WHV_REGISTER_VALUE _rsi;
+  WHV_REGISTER_VALUE _rdi;
+  WHV_REGISTER_VALUE _r8;
+  WHV_REGISTER_VALUE _r9;
+  WHV_REGISTER_VALUE _r10;
+  WHV_REGISTER_VALUE _r11;
+  WHV_REGISTER_VALUE _r12;
+  WHV_REGISTER_VALUE _r13;
+  WHV_REGISTER_VALUE _r14;
+  WHV_REGISTER_VALUE _r15;
+  WHV_REGISTER_VALUE _rip;
+  WHV_REGISTER_VALUE _rflags;
+  WHV_REGISTER_VALUE _es;
+  WHV_REGISTER_VALUE _cs;
+  WHV_REGISTER_VALUE _ss;
+  WHV_REGISTER_VALUE _ds;
+  WHV_REGISTER_VALUE _fs;
+  WHV_REGISTER_VALUE _gs;
+  WHV_REGISTER_VALUE _ldtr;
+  WHV_REGISTER_VALUE _tr;
+  WHV_REGISTER_VALUE _idtr;
+  WHV_REGISTER_VALUE _gdtr;
+  WHV_REGISTER_VALUE _cr0;
+  WHV_REGISTER_VALUE _cr2;
+  WHV_REGISTER_VALUE _cr3;
+  WHV_REGISTER_VALUE _cr4;
+  WHV_REGISTER_VALUE _cr8;
+  WHV_REGISTER_VALUE _dr0;
+  WHV_REGISTER_VALUE _dr1;
+  WHV_REGISTER_VALUE _dr2;
+  WHV_REGISTER_VALUE _dr3;
+  WHV_REGISTER_VALUE _dr6;
+  WHV_REGISTER_VALUE _dr7;
+
+  WHV_REGISTER_VALUE xmm0;
+  WHV_REGISTER_VALUE xmm1;
+  WHV_REGISTER_VALUE xmm2;
+  WHV_REGISTER_VALUE xmm3;
+  WHV_REGISTER_VALUE xmm4;
+  WHV_REGISTER_VALUE xmm5;
+  WHV_REGISTER_VALUE xmm6;
+  WHV_REGISTER_VALUE xmm7;
+  WHV_REGISTER_VALUE xmm8;
+  WHV_REGISTER_VALUE xmm9;
+  WHV_REGISTER_VALUE xmm10;
+  WHV_REGISTER_VALUE xmm11;
+  WHV_REGISTER_VALUE xmm12;
+  WHV_REGISTER_VALUE xmm13;
+  WHV_REGISTER_VALUE xmm14;
+  WHV_REGISTER_VALUE xmm15;
+
+  WHV_REGISTER_VALUE st0;
+  WHV_REGISTER_VALUE st1;
+  WHV_REGISTER_VALUE st2;
+  WHV_REGISTER_VALUE st3;
+  WHV_REGISTER_VALUE st4;
+  WHV_REGISTER_VALUE st5;
+  WHV_REGISTER_VALUE st6;
+  WHV_REGISTER_VALUE st7;
+
+  WHV_REGISTER_VALUE fp_control;
+  WHV_REGISTER_VALUE xmm_control;
+
+  WHV_REGISTER_VALUE tsc;
+  WHV_REGISTER_VALUE efer;
+  WHV_REGISTER_VALUE kernel_gs_base;
+  WHV_REGISTER_VALUE apic_base;
+  WHV_REGISTER_VALUE tsc_aux;
+  WHV_REGISTER_VALUE sysenter_cs;
+  WHV_REGISTER_VALUE sysenter_eip;
+  WHV_REGISTER_VALUE sysenter_esp;
+  WHV_REGISTER_VALUE star;
+  WHV_REGISTER_VALUE lstar;
+  WHV_REGISTER_VALUE cstar;
+  WHV_REGISTER_VALUE sfmask;
+  //WHV_REGISTER_VALUE pat;
+
+};
+
+WHV_REGISTER_NAME whpv_register_order[] = {
+	WHvX64RegisterRax,
+	WHvX64RegisterRcx,
+	WHvX64RegisterRdx,
+	WHvX64RegisterRbx,
+	WHvX64RegisterRsp,
+	WHvX64RegisterRbp,
+	WHvX64RegisterRsi,
+	WHvX64RegisterRdi,
+	WHvX64RegisterR8,
+	WHvX64RegisterR9,
+	WHvX64RegisterR10,
+	WHvX64RegisterR11,
+	WHvX64RegisterR12,
+	WHvX64RegisterR13,
+	WHvX64RegisterR14,
+	WHvX64RegisterR15,
+	WHvX64RegisterRip,
+  WHvX64RegisterRflags,
+  // X64 Segment registers
+  
+  WHvX64RegisterEs,
+    WHvX64RegisterCs,
+    WHvX64RegisterSs,
+    WHvX64RegisterDs,
+    WHvX64RegisterFs,
+    WHvX64RegisterGs,
+    WHvX64RegisterLdtr,
+    WHvX64RegisterTr,
+    // X64 Table registers
+    WHvX64RegisterIdtr,
+    WHvX64RegisterGdtr,
+
+    // X64 Control Reg
+    WHvX64RegisterCr0,
+    WHvX64RegisterCr2,
+    WHvX64RegisterCr3,
+    WHvX64RegisterCr4,
+    WHvX64RegisterCr8,
+
+    // X64 Debug Regi
+    WHvX64RegisterDr0,
+    WHvX64RegisterDr1,
+    WHvX64RegisterDr2,
+    WHvX64RegisterDr3,
+    WHvX64RegisterDr6,
+    WHvX64RegisterDr7,
+    
+    // X64 Floating Point and Vector Registers
+    WHvX64RegisterXmm0,
+    WHvX64RegisterXmm1,
+    WHvX64RegisterXmm2,
+    WHvX64RegisterXmm3,
+    WHvX64RegisterXmm4,
+    WHvX64RegisterXmm5,
+    WHvX64RegisterXmm6,
+    WHvX64RegisterXmm7,
+    WHvX64RegisterXmm8,
+    WHvX64RegisterXmm9,
+    WHvX64RegisterXmm10,
+    WHvX64RegisterXmm11,
+    WHvX64RegisterXmm12,
+    WHvX64RegisterXmm13,
+    WHvX64RegisterXmm14,
+    WHvX64RegisterXmm15,
+    WHvX64RegisterFpMmx0,
+    WHvX64RegisterFpMmx1,
+    WHvX64RegisterFpMmx2,
+    WHvX64RegisterFpMmx3,
+    WHvX64RegisterFpMmx4,
+    WHvX64RegisterFpMmx5,
+    WHvX64RegisterFpMmx6,
+    WHvX64RegisterFpMmx7,
+    WHvX64RegisterFpControlStatus,
+    WHvX64RegisterXmmControlStatus,
+    
+    // X64 MSRs
+    WHvX64RegisterTsc,
+    WHvX64RegisterEfer,
+    WHvX64RegisterKernelGsBase,
+    WHvX64RegisterApicBase,
+    WHvX64RegisterTscAux,
+    WHvX64RegisterSysenterCs,
+    WHvX64RegisterSysenterEip,
+    WHvX64RegisterSysenterEsp,
+    WHvX64RegisterStar,
+    WHvX64RegisterLstar,
+    WHvX64RegisterCstar,
+    WHvX64RegisterSfmask,
+    //WHvX64RegisterPat,
+
+    
+    
+};
+
+
+// Segment getter helper
+#define GET_SEGMENT_FULL(name, bochs_seg) \
+  Registers->name.Segment.Base       = bochs_seg.cache.u.segment.base;\
+  Registers->name.Segment.Limit      = bochs_seg.cache.u.segment.limit_scaled;\
+  Registers->name.Segment.Selector   = bochs_seg.selector.value;\
+  Registers->name.Segment.Attributes = (BX_CPU(processor)->get_descriptor_h(&bochs_seg.cache) >> 8) & 0xffff;
+
+// Floating point register value getter
+#define GET_FP_REG(name, bochs_idx) \
+  context->name.Fp.Mantissa       = BX_READ_FPU_REG(bochs_idx).fraction;\
+  context->name.Fp.BiasedExponent = BX_READ_FPU_REG(bochs_idx).exp & 0x7fff;\
+  context->name.Fp.Sign           = (BX_READ_FPU_REG(bochs_idx).exp >> 15) & 1;
+
+void bochs_whvp_get_registers(unsigned int processor, struct _whvp_registers* Registers)
+{
+  Registers->_rax.Reg64 = BX_CPU(processor)->gen_reg[0].rrx;
+  Registers->_rcx.Reg64 = BX_CPU(processor)->gen_reg[1].rrx;
+  Registers->_rdx.Reg64 = BX_CPU(processor)->gen_reg[2].rrx;
+  Registers->_rbx.Reg64 = BX_CPU(processor)->gen_reg[3].rrx;
+  Registers->_rsp.Reg64 = BX_CPU(processor)->gen_reg[4].rrx;
+  Registers->_rbp.Reg64 = BX_CPU(processor)->gen_reg[5].rrx;
+  Registers->_rsi.Reg64 = BX_CPU(processor)->gen_reg[6].rrx;
+  Registers->_rdi.Reg64 = BX_CPU(processor)->gen_reg[7].rrx;
+  Registers->_r8.Reg64 = BX_CPU(processor)->gen_reg[8].rrx;
+  Registers->_r9.Reg64 = BX_CPU(processor)->gen_reg[9].rrx;
+  Registers->_r10.Reg64 = BX_CPU(processor)->gen_reg[10].rrx;
+  Registers->_r11.Reg64 = BX_CPU(processor)->gen_reg[11].rrx;
+  Registers->_r12.Reg64 = BX_CPU(processor)->gen_reg[12].rrx;
+  Registers->_r13.Reg64 = BX_CPU(processor)->gen_reg[13].rrx;
+  Registers->_r14.Reg64 = BX_CPU(processor)->gen_reg[14].rrx;
+  Registers->_r15.Reg64 = BX_CPU(processor)->gen_reg[15].rrx;
+  Registers->_rip.Reg64 = BX_CPU(processor)->gen_reg[BX_64BIT_REG_RIP].rrx;
+  Registers->_rflags.Reg64 = (BX_CPU(processor)->eflags & 0xfffff73a) |
+        ((unsigned int)(BX_CPU(processor)->get_OF() != 0) << 11UL) |
+        ((unsigned int)(BX_CPU(processor)->get_SF() != 0) << 7UL) |
+        ((unsigned int)(BX_CPU(processor)->get_ZF() != 0) << 6UL) |
+        ((unsigned int)(BX_CPU(processor)->get_PF() != 0) << 2UL) |
+        ((unsigned int)(BX_CPU(processor)->get_CF() != 0) << 0UL);
+    
+  BX_CPU(processor)->eflags = Registers->_rflags.Reg32;
+  Registers->_dr0.Reg64 = BX_CPU(processor)->dr_shadow[0];
+  Registers->_dr1.Reg64 = BX_CPU(processor)->dr_shadow[1];
+  Registers->_dr2.Reg64 = BX_CPU(processor)->dr_shadow[2];
+  Registers->_dr3.Reg64 = BX_CPU(processor)->dr_shadow[3];
+  Registers->_dr6.Reg64 = BX_CPU(processor)->dr6.val32;
+  Registers->_dr7.Reg64 = BX_CPU(processor)->dr7_shadow.val32;
+  Registers->_cr0.Reg64 = BX_CPU(processor)->cr0.val32;
+  Registers->_cr2.Reg64 = BX_CPU(processor)->cr2;
+  Registers->_cr3.Reg64 = BX_CPU(processor)->cr3;
+  Registers->_cr4.Reg64 = BX_CPU(processor)->cr4.val32;
+  //Registers->cpu_number = processor;
+  //Registers->xcr0 = BX_CPU(processor)->xcr0.val32;
+
+
+  Registers->tsc_aux.Reg64 = BX_CPU(processor)->msr.tsc_aux;
+  Registers->tsc.Reg64 = BX_CPU(processor)->get_TSC();
+  Registers->apic_base.Reg64 = BX_CPU(processor)->msr.apicbase;
+  //Registers->pat.Reg64 = BX_CPU(processor)->msr.pat._u64;
+  Registers->sysenter_cs.Reg32 = BX_CPU(processor)->msr.sysenter_cs_msr;
+  Registers->sysenter_eip.Reg64 = BX_CPU(processor)->msr.sysenter_eip_msr;
+  Registers->sysenter_esp.Reg64 = BX_CPU(processor)->msr.sysenter_esp_msr;
+  Registers->efer.Reg32 = BX_CPU(processor)->efer.get32();
+  Registers->star.Reg64 = BX_CPU(processor)->msr.star;
+  Registers->lstar.Reg64 = BX_CPU(processor)->msr.lstar;
+  Registers->cstar.Reg64 = BX_CPU(processor)->msr.cstar;
+  Registers->sfmask.Reg32 = BX_CPU(processor)->msr.fmask;
+  Registers->kernel_gs_base.Reg64 = BX_CPU(processor)->msr.kernelgsbase;
+  //Registers->fx.mxcsr = BX_CPU(processor)->mxcsr.mxcsr;
+  //Registers->fx.mxcsr_mask = BX_CPU(processor)->mxcsr_mask;
+  //Registers->smbase = BX_CPU(processor)->smbase;
+  /*
+  Registers->_gdtr.Table.Base = BX_CPU(processor)->gdtr.base;
+  Registers->_gdtr.Table.Limit = BX_CPU(processor)->gdtr.limit;
+  Registers->_idtr.Table.Base = BX_CPU(processor)->idtr.base;
+  Registers->_idtr.Table.Limit = BX_CPU(processor)->idtr.limit;
+
+  Registers->_ldtr.Segment.Selector = BX_CPU(processor)->ldtr.selector.value;
+  Registers->_ldtr.Segment.Limit = BX_CPU(processor)->ldtr.cache.u.segment.limit_scaled;
+  Registers->_ldtr.Segment.Base = BX_CPU(processor)->ldtr.cache.u.segment.base;
+  Registers->_ldtr.Segment.Attributes = (BX_CPU_THIS_PTR get_descriptor_h(&bochs_seg.cache) >> 8) & 0xffff; //get_ar_byte(&BX_CPU(processor)->ldtr.cache);
+
+  Registers->_ldt.available = BX_CPU(processor)->ldtr.cache.u.segment.avl;
+  Registers->_ldt.long_mode = BX_CPU(processor)->ldtr.cache.u.segment.l;
+  Registers->_ldt.operand_size = BX_CPU(processor)->ldtr.cache.u.segment.d_b;
+  Registers->_ldt.granularity = BX_CPU(processor)->ldtr.cache.u.segment.g;
+  
+  Registers->_cs.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_CS].selector.value;
+  Registers->_cs.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.limit_scaled;
+  Registers->_cs.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache.u.segment.base;
+  Registers->_cs.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_CS].cache);
+
+  Registers->_ds.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_DS].selector.value;
+  Registers->_ds.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.limit_scaled;
+  Registers->_ds.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache.u.segment.base;
+  Registers->_ds.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_DS].cache);
+
+  Registers->_ss.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_SS].selector.value;
+  Registers->_ss.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.limit_scaled;
+  Registers->_ss.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache.u.segment.base;
+  Registers->_ss.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_SS].cache);
+
+  Registers->_es.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_ES].selector.value;
+  Registers->_es.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.limit_scaled;
+  Registers->_es.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache.u.segment.base;
+  Registers->_es.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_ES].cache);
+
+  Registers->_fs.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_FS].selector.value;
+  Registers->_fs.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.limit_scaled;
+  Registers->_fs.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache.u.segment.base;
+  Registers->_fs.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_FS].cache);
+    
+  Registers->_gs.Segment.Selector = BX_CPU(processor)->sregs[BX_SEG_REG_GS].selector.value;
+  Registers->_gs.Segment.Limit = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.limit_scaled;
+  Registers->_gs.Segment.Base = BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache.u.segment.base;
+  Registers->_gs.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->sregs[BX_SEG_REG_GS].cache);
+  
+  Registers->_tr.Segment.Selector = BX_CPU(processor)->tr.selector.value;
+  Registers->_tr.Segment.Limit = BX_CPU(processor)->tr.cache.u.segment.limit_scaled;
+  Registers->_tr.Segment.Base = BX_CPU(processor)->tr.cache.u.segment.base;
+  Registers->_tr.Segment.Attributes = get_ar_byte(&BX_CPU(processor)->tr.cache);
+  */
+  GET_SEGMENT_FULL(_es, BX_CPU(processor)->sregs[BX_SEG_REG_ES]);
+  GET_SEGMENT_FULL(_cs, BX_CPU(processor)->sregs[BX_SEG_REG_CS]);
+  GET_SEGMENT_FULL(_ss, BX_CPU(processor)->sregs[BX_SEG_REG_SS]);
+  GET_SEGMENT_FULL(_ds, BX_CPU(processor)->sregs[BX_SEG_REG_DS]);
+  GET_SEGMENT_FULL(_fs, BX_CPU(processor)->sregs[BX_SEG_REG_FS]);
+  GET_SEGMENT_FULL(_gs, BX_CPU(processor)->sregs[BX_SEG_REG_GS]);
+
+  GET_SEGMENT_FULL(_ldtr, BX_CPU(processor)->ldtr);
+  GET_SEGMENT_FULL(_tr, BX_CPU(processor)->tr);
+
+  memcpy(Registers->xmm0.Reg128.Dword, BX_CPU(processor)->vmm[0].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm1.Reg128.Dword, BX_CPU(processor)->vmm[1].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm2.Reg128.Dword, BX_CPU(processor)->vmm[2].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm3.Reg128.Dword, BX_CPU(processor)->vmm[3].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm4.Reg128.Dword, BX_CPU(processor)->vmm[4].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm5.Reg128.Dword, BX_CPU(processor)->vmm[5].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm6.Reg128.Dword, BX_CPU(processor)->vmm[6].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm7.Reg128.Dword, BX_CPU(processor)->vmm[7].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm8.Reg128.Dword, BX_CPU(processor)->vmm[8].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm9.Reg128.Dword, BX_CPU(processor)->vmm[9].vmm128(0).xmm_u32,  16);
+    memcpy(Registers->xmm10.Reg128.Dword, BX_CPU(processor)->vmm[10].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm11.Reg128.Dword, BX_CPU(processor)->vmm[11].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm12.Reg128.Dword, BX_CPU(processor)->vmm[12].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm13.Reg128.Dword, BX_CPU(processor)->vmm[13].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm14.Reg128.Dword, BX_CPU(processor)->vmm[14].vmm128(0).xmm_u32, 16);
+    memcpy(Registers->xmm15.Reg128.Dword, BX_CPU(processor)->vmm[15].vmm128(0).xmm_u32, 16);
+  
+  Registers->st0.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[0].signif;
+  Registers->st0.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[0].signExp & 0xffff;
+  Registers->st0.Fp.Sign = BX_CPU(processor)->the_i387.st_space[0].signExp >> 15;
+
+  Registers->st1.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[1].signif;
+  Registers->st1.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[1].signExp  & 0xffff;
+  Registers->st1.Fp.Sign = BX_CPU(processor)->the_i387.st_space[1].signExp >> 15;
+
+  Registers->st2.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[2].signif;
+  Registers->st2.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[2].signExp & 0xffff;
+  Registers->st2.Fp.Sign = BX_CPU(processor)->the_i387.st_space[2].signExp >> 15;
+
+  Registers->st3.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[3].signif;
+  Registers->st3.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[3].signExp & 0xffff;
+  Registers->st3.Fp.Sign = BX_CPU(processor)->the_i387.st_space[3].signExp >> 15;
+
+  Registers->st4.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[4].signif;
+  Registers->st4.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[4].signExp & 0xffff;
+  Registers->st4.Fp.Sign = BX_CPU(processor)->the_i387.st_space[4].signExp >> 15;
+
+  Registers->st5.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[5].signif;
+  Registers->st5.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[5].signExp & 0xffff;
+  Registers->st5.Fp.Sign = BX_CPU(processor)->the_i387.st_space[5].signExp >> 15;
+
+  Registers->st6.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[6].signif;
+  Registers->st6.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[6].signExp & 0xffff;
+  Registers->st6.Fp.Sign = BX_CPU(processor)->the_i387.st_space[6].signExp >> 15;
+
+  Registers->st7.Fp.Mantissa = BX_CPU(processor)->the_i387.st_space[7].signif;
+  Registers->st7.Fp.BiasedExponent = BX_CPU(processor)->the_i387.st_space[7].signExp & 0xffff;
+  Registers->st7.Fp.Sign = BX_CPU(processor)->the_i387.st_space[7].signExp >> 15;
+
+
+  Registers->fp_control.FpControlStatus.FpControl = BX_CPU(processor)->the_i387.cwd;
+  Registers->fp_control.FpControlStatus.FpStatus = BX_CPU(processor)->the_i387.swd;
+  Registers->fp_control.FpControlStatus.FpTag = (UINT8)BX_CPU(processor)->the_i387.twd;
+  Registers->fp_control.FpControlStatus.LastFpOp = BX_CPU(processor)->the_i387.foo;
+
+  if(BX_CPU(processor)->efer.get_LMA()) {
+    Registers->fp_control.FpControlStatus.LastFpRip = BX_CPU(processor)->the_i387.fip;
+    Registers->xmm_control.XmmControlStatus.LastFpRdp = BX_CPU(processor)->the_i387.fdp;
+  } else {
+    Registers->fp_control.FpControlStatus.LastFpEip = (UINT32)BX_CPU(processor)->the_i387.fip;
+    Registers->fp_control.FpControlStatus.LastFpCs = BX_CPU(processor)->the_i387.fcs;
+    Registers->xmm_control.XmmControlStatus.LastFpDp = (UINT32)BX_CPU(processor)->the_i387.fdp;
+    Registers->xmm_control.XmmControlStatus.LastFpDs = BX_CPU(processor)->the_i387.fds;
+  }
+
+  Registers->xmm_control.XmmControlStatus.XmmStatusControl = BX_CPU(processor)->mxcsr.mxcsr;
+  Registers->xmm_control.XmmControlStatus.XmmStatusControlMask = BX_CPU(processor)->mxcsr_mask;
+  //Registers->vmx_enabled = BX_CPU(processor)->in_vmx;
+  //Registers->vmx_in_guest = BX_CPU(processor)->in_vmx_guest;
+  //Registers->last_accessed_addr = BX_CPU(processor)->last_accessed_addr;
+
+  /*
+  if (Registers->vmx_enabled) {
+    //host
+    Registers->vmcs_host.host_cr0 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR0);
+    Registers->vmcs_host.host_cr3 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR3);
+    Registers->vmcs_host.host_cr4 = BX_CPU(processor)->VMread_natural(VMCS_HOST_CR4);
+    Registers->vmcs_host.host_rsp = BX_CPU(processor)->VMread_natural(VMCS_HOST_RSP);
+    Registers->vmcs_host.host_rip = BX_CPU(processor)->VMread_natural(VMCS_HOST_RIP);
+
+    //BX_CPU(processor)->access_read_linear((bx_address)Registers->vmcs_host.host_rsp, 8, 0, BX_READ, 0x1, (void *)&Registers->host_saved_regs._rax);    
+    //guest
+    Registers->vmcs_guest.guest_cr0 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR0);
+    Registers->vmcs_guest.guest_cr3 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR3);
+    Registers->vmcs_guest.guest_cr4 = BX_CPU(processor)->VMread_natural(VMCS_GUEST_CR4);
+    Registers->vmcs_guest.guest_rsp = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RSP);
+    Registers->vmcs_guest.guest_rip = BX_CPU(processor)->VMread_natural(VMCS_GUEST_RIP);
+
+  }
+  */
+  
+}
+
+void bochs_whvp_set_registers(unsigned int processor, struct _whvp_registers* Registers)
+{
+  Bit64u tmp[4], j, i;
+
+  BX_CPU(processor)->gen_reg[0].rrx = Registers->_rax.Reg64;
+  BX_CPU(processor)->gen_reg[1].rrx = Registers->_rcx.Reg64;
+  BX_CPU(processor)->gen_reg[2].rrx = Registers->_rdx.Reg64;
+  BX_CPU(processor)->gen_reg[3].rrx = Registers->_rbx.Reg64;
+  BX_CPU(processor)->gen_reg[4].rrx = Registers->_rsp.Reg64;
+  BX_CPU(processor)->gen_reg[5].rrx = Registers->_rbp.Reg64;
+  BX_CPU(processor)->gen_reg[6].rrx = Registers->_rsi.Reg64;
+  BX_CPU(processor)->gen_reg[7].rrx = Registers->_rdi.Reg64;
+  BX_CPU(processor)->gen_reg[8].rrx = Registers->_r8.Reg64;
+  BX_CPU(processor)->gen_reg[9].rrx = Registers->_r9.Reg64;
+  BX_CPU(processor)->gen_reg[10].rrx = Registers->_r10.Reg64;
+  BX_CPU(processor)->gen_reg[11].rrx = Registers->_r11.Reg64;
+  BX_CPU(processor)->gen_reg[12].rrx = Registers->_r12.Reg64;
+  BX_CPU(processor)->gen_reg[13].rrx = Registers->_r13.Reg64;
+  BX_CPU(processor)->gen_reg[14].rrx = Registers->_r14.Reg64;
+  BX_CPU(processor)->gen_reg[15].rrx = Registers->_r15.Reg64;
+  BX_CPU(processor)->gen_reg[BX_64BIT_REG_RIP].rrx = Registers->_rip.Reg64;
+  if (BX_CPU(processor)->eflags != Registers->_rflags.Reg64) {
+    BX_CPU(processor)->setEFlagsOSZAPC((Bit32u)Registers->_rflags.Reg64);
+    BX_CPU(processor)->eflags = (Bit32u)Registers->_rflags.Reg64;
+  }
+  tmp[0] = Registers->_dr0.Reg64;
+  tmp[1] = Registers->_dr1.Reg64;
+  tmp[2] = Registers->_dr2.Reg64;
+  tmp[3] = Registers->_dr3.Reg64;
+
+  //set dr in every cpu
+  for (j = 0; j < BX_SMP_PROCESSORS; j++) {
+    for (i = 0; i < 4; i++) {
+      if (BX_CPU(j)->dr_shadow[i] != tmp[i]) {
+        if (BX_CPU(j)->link_opcodes[i] != 0xcc) 
+          BX_CPU(j)->link_opcodes[i] = 0xcc;
+        BX_CPU(j)->dr_shadow[i] = tmp[i];
+      }
+    }
+    BX_CPU(j)->dr7_shadow.val32 = Registers->_dr7.Reg32;
+    BX_CPU(j)->dr6.val32 = Registers->_dr6.Reg32;
+  }
+  //BX_CPU(processor)->last_accessed_addr = Registers->last_accessed_addr;
+  BX_CPU(processor)->dr7.val32 = Registers->_dr7.Reg32;
+	BX_CPU(processor)->cr0.val32 = (uint32_t)Registers->_cr0.Reg32;
+	BX_CPU(processor)->cr3 = Registers->_cr3.Reg64;
+	BX_CPU(processor)->cr2 = Registers->_cr2.Reg64;
+	BX_CPU(processor)->cr4.val32 = (uint32_t)Registers->_cr4.Reg32;
+	//BX_CPU(processor)->xcr0.val32 = (uint32_t)Registers->xcr0.Reg64;
+	BX_CPU(processor)->msr.tsc_aux = (uint32_t)Registers->tsc_aux.Reg64;
+
+
+  memcpy(BX_CPU(processor)->vmm[0].vmm128(0).xmm_u32, Registers->xmm0.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[1].vmm128(0).xmm_u32, Registers->xmm1.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[2].vmm128(0).xmm_u32, Registers->xmm2.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[3].vmm128(0).xmm_u32, Registers->xmm3.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[4].vmm128(0).xmm_u32, Registers->xmm4.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[5].vmm128(0).xmm_u32, Registers->xmm5.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[6].vmm128(0).xmm_u32, Registers->xmm6.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[7].vmm128(0).xmm_u32, Registers->xmm7.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[8].vmm128(0).xmm_u32, Registers->xmm8.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[9].vmm128(0).xmm_u32, Registers->xmm9.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[10].vmm128(0).xmm_u32, Registers->xmm10.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[11].vmm128(0).xmm_u32, Registers->xmm11.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[12].vmm128(0).xmm_u32, Registers->xmm12.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[13].vmm128(0).xmm_u32, Registers->xmm13.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[14].vmm128(0).xmm_u32, Registers->xmm14.Reg128.Dword, 16);
+  memcpy(BX_CPU(processor)->vmm[15].vmm128(0).xmm_u32, Registers->xmm15.Reg128.Dword, 16);
+
+  BX_CPU(processor)->the_i387.st_space[0].signif  = Registers->st0.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[0].signExp       = (uint16_t)(Registers->st0.Fp.BiasedExponent | (Registers->st0.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[1].signif  = Registers->st1.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[1].signExp       = (uint16_t)(Registers->st1.Fp.BiasedExponent | (Registers->st1.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[2].signif  = Registers->st2.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[2].signExp       = (uint16_t)(Registers->st2.Fp.BiasedExponent | (Registers->st2.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[3].signif  = Registers->st3.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[3].signExp       = (uint16_t)(Registers->st3.Fp.BiasedExponent | (Registers->st3.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[4].signif  = Registers->st4.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[4].signExp       = (uint16_t)(Registers->st4.Fp.BiasedExponent | (Registers->st4.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[5].signif  = Registers->st5.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[5].signExp       = (uint16_t)(Registers->st5.Fp.BiasedExponent | (Registers->st5.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[6].signif  = Registers->st6.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[6].signExp       = (uint16_t)(Registers->st6.Fp.BiasedExponent | (Registers->st6.Fp.Sign << 15));
+
+  BX_CPU(processor)->the_i387.st_space[7].signif  = Registers->st7.Fp.Mantissa;
+  BX_CPU(processor)->the_i387.st_space[7].signExp       = (uint16_t)(Registers->st7.Fp.BiasedExponent | (Registers->st7.Fp.Sign << 15));
+
+
+
+  BX_CPU(processor)-> the_i387.cwd = Registers->fp_control.FpControlStatus.FpControl;
+  BX_CPU(processor)-> the_i387.swd = Registers->fp_control.FpControlStatus.FpStatus;
+  BX_CPU(processor)-> the_i387.twd = Registers->fp_control.FpControlStatus.FpTag;
+  BX_CPU(processor)-> the_i387.foo = Registers->fp_control.FpControlStatus.LastFpOp;
+
+  
+
+  BX_CPU(processor)-> mxcsr.mxcsr = Registers->xmm_control.XmmControlStatus.XmmStatusControl;
+  BX_CPU(processor)-> mxcsr_mask  = Registers->xmm_control.XmmControlStatus.XmmStatusControlMask;
+
+  BX_CPU(processor)->set_TSC(Registers->tsc.Reg64);
+  BX_CPU(processor)->efer.set32(Registers->efer.Reg32);
+  BX_CPU(processor)->msr.kernelgsbase = Registers->kernel_gs_base.Reg64;
+  BX_CPU(processor)->msr.apicbase = Registers->apic_base.Reg64;
+  //BX_CPU(processor)->msr.pat._u64 = Registers->pat.Reg64;
+  BX_CPU(processor)->msr.sysenter_cs_msr = Registers->sysenter_cs.Reg32;
+  BX_CPU(processor)->msr.sysenter_eip_msr = Registers->sysenter_eip.Reg64;
+  BX_CPU(processor)->msr.sysenter_esp_msr = Registers->sysenter_esp.Reg64;
+  BX_CPU(processor)->msr.star = Registers->star.Reg64;
+  BX_CPU(processor)->msr.lstar = Registers->lstar.Reg64;
+  BX_CPU(processor)->msr.cstar = Registers->cstar.Reg64;
+  BX_CPU(processor)->msr.fmask = Registers->sfmask.Reg32;
+  BX_CPU(processor)->msr.tsc_aux = Registers->tsc_aux.Reg32;
+
+  BX_CPU(processor)->idtr.base  = Registers->_idtr.Table.Base;
+  BX_CPU(processor)->idtr.limit = Registers->_idtr.Table.Limit;
+  BX_CPU(processor)->gdtr.base  = Registers->_gdtr.Table.Base;
+  BX_CPU(processor)->gdtr.limit = Registers->_gdtr.Table.Limit;
+  
+  if(BX_CPU(processor)-> efer.get_LMA()) {
+    BX_CPU(processor)-> the_i387.fip = Registers->fp_control.FpControlStatus.LastFpRip;
+    BX_CPU(processor)-> the_i387.fdp = Registers->xmm_control.XmmControlStatus.LastFpRdp;
+  } else {
+    BX_CPU(processor)-> the_i387.fip = Registers->fp_control.FpControlStatus.LastFpEip;
+    BX_CPU(processor)-> the_i387.fcs = Registers->fp_control.FpControlStatus.LastFpCs;
+    BX_CPU(processor)-> the_i387.fdp = Registers->xmm_control.XmmControlStatus.LastFpDp;
+    BX_CPU(processor)-> the_i387.fds = Registers->xmm_control.XmmControlStatus.LastFpDs;
+  }
+
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->ldtr, 
+   Registers->_ldtr.Segment.Present,
+   Registers->_ldtr.Segment.Selector, 
+   Registers->_ldtr.Segment.Base,	
+   Registers->_ldtr.Segment.Limit, 
+   Registers->_ldtr.Segment.Attributes);
+
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->tr,
+        Registers->_tr.Segment.Present,
+        Registers->_tr.Segment.Selector,
+        Registers->_tr.Segment.Base,
+        Registers->_tr.Segment.Limit,
+        Registers->_tr.Segment.Attributes);
+
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_CS],
+        Registers->_cs.Segment.Present,
+        Registers->_cs.Segment.Selector,
+        Registers->_cs.Segment.Base,
+        Registers->_cs.Segment.Limit,
+        Registers->_cs.Segment.Attributes);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_SS],
+        Registers->_ss.Segment.Present,
+        Registers->_ss.Segment.Selector,
+        Registers->_ss.Segment.Base,
+        Registers->_ss.Segment.Limit,
+        Registers->_ss.Segment.Attributes);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_DS],
+        Registers->_ds.Segment.Present,
+        Registers->_ds.Segment.Selector,
+        Registers->_ds.Segment.Base,
+        Registers->_ds.Segment.Limit,
+        Registers->_ds.Segment.Attributes);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_ES],
+        Registers->_es.Segment.Present,
+        Registers->_es.Segment.Selector,
+        Registers->_es.Segment.Base,
+        Registers->_es.Segment.Limit,
+        Registers->_es.Segment.Attributes);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_FS],
+        Registers->_fs.Segment.Present,
+        Registers->_fs.Segment.Selector,
+        Registers->_fs.Segment.Base,
+        Registers->_fs.Segment.Limit,
+        Registers->_fs.Segment.Attributes);
+  BX_CPU(processor)->set_segment_ar_data(&BX_CPU(processor)->sregs[BX_SEG_REG_GS],
+        Registers->_gs.Segment.Present,
+        Registers->_gs.Segment.Selector,
+        Registers->_gs.Segment.Base,
+        Registers->_gs.Segment.Limit,
+        Registers->_gs.Segment.Attributes);
+  //BX_CPU(processor)->TLB_flush();
+
+  /*
+  //BX_CPU(processor)->set_TSC(Registers->tsc);
+	BX_CPU(processor)->msr.apicbase = Registers->apicbase;
+	BX_CPU(processor)->msr.sysenter_cs_msr = (uint32_t)Registers->_sysenter_cs;
+	BX_CPU(processor)->msr.sysenter_esp_msr = Registers->_sysenter_esp;
+	BX_CPU(processor)->msr.sysenter_eip_msr = Registers->_sysenter_eip;
+	BX_CPU(processor)->msr.pat._u64 = Registers->pat;
+	BX_CPU(processor)->efer.val32 = (uint32_t)Registers->_efer;
+	BX_CPU(processor)->msr.star = Registers->star;
+	BX_CPU(processor)->msr.lstar = Registers->lstar;
+	BX_CPU(processor)->msr.cstar = Registers->cstar;
+	BX_CPU(processor)->msr.fmask = (uint32_t)Registers->fmask;
+	BX_CPU(processor)->msr.kernelgsbase = Registers->kernelgsbase;
+	BX_CPU(processor)->mxcsr.mxcsr = Registers->fx.mxcsr;
+	BX_CPU(processor)->mxcsr_mask = Registers->fx.mxcsr_mask;
+  BX_CPU(processor)->smbase = Registers->smbase;
+  BX_CPU(processor)->gdtr.base = Registers->_gdt.base;
+	BX_CPU(processor)->gdtr.limit = Registers->_gdt.limit;
+	BX_CPU(processor)->idtr.base = Registers->_idt.base;
+	BX_CPU(processor)->idtr.limit = Registers->_idt.limit;
+ */
+
+#if BX_CPU_LEVEL >= 4
+  BX_CPU(processor)->handleAlignmentCheck();
+#endif
+
+  BX_CPU(processor)->handleCpuModeChange();
+
+#if BX_CPU_LEVEL >= 6
+  BX_CPU(processor)->handleSseModeChange();
+#if BX_SUPPORT_AVX
+  BX_CPU(processor)->handleAvxModeChange();
+#endif
+#endif
+}
 #endif
 
 size_t bx_get_timestamp(char *buffer)
@@ -553,6 +1190,219 @@ size_t bx_get_timestamp(char *buffer)
 #endif
   return strlen(buffer);
 }
+
+WHV_PARTITION_HANDLE PartitionHandle;
+HANDLE EventHandle;
+
+static inline uint64_t rdtsc_start(void) {
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 0);      // serialize before
+    return __rdtsc();
+}
+
+static inline uint64_t rdtsc_now(void) {
+    unsigned int aux;
+    return __rdtscp(&aux);    // cheaper, serializing read
+}
+
+static double now_seconds(void) {
+    LARGE_INTEGER freq, counter;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&counter);
+    return (double)counter.QuadPart / (double)freq.QuadPart;
+}
+
+static double calculate_tsc_hz(void) {
+    double start_time = now_seconds();
+    uint64_t start_tsc = rdtsc_start();
+
+    while (1) {
+        double elapsed = now_seconds() - start_time;
+        if (elapsed >= 0.1) {
+            uint64_t end_tsc = rdtsc_now();
+            return (double)(end_tsc - start_tsc) / elapsed;
+        }
+    }
+}
+
+BX_THREAD_FUNC(kickerThreadInit, indata)
+{
+  double tsc_hz = calculate_tsc_hz();
+  //uint64_t cycles_per_tick = (uint64_t)(tsc_hz / 1000.0); // 1000 Hz = every 1 ms
+  
+  uint32_t result;
+
+  for (;;) {
+    result = WaitForSingleObject(EventHandle, INFINITE);
+    if (result != WAIT_OBJECT_0)
+      continue;
+    uint64_t last_tsc = rdtsc_now();
+    for (;;) {
+      uint64_t now = rdtsc_now();
+      if (now - last_tsc >= tsc_hz) {
+        last_tsc += tsc_hz;
+        WHvCancelRunVirtualProcessor(PartitionHandle, 0, 0);
+        ResetEvent(EventHandle);
+        break;
+      }
+    }
+  } 
+  BX_THREAD_EXIT;
+}
+
+void bx_whpx_init(void)
+{
+  struct _whvp_registers WhvpRegisters, WhvpRegisters2;
+  WHV_RUN_VP_EXIT_CONTEXT ExitContext;
+	WHV_PARTITION_PROPERTY WHvPartitionProperty;
+	WHV_CAPABILITY CapabilityBuffer;
+	HRESULT Res;
+	Bit32u Size;
+  Bit64u i, j, block, tmp, hypervCyclesPassed, hypervSecondsPassed;
+  WHV_REGISTER_NAME pendingInteruptName = WHvRegisterPendingInterruption;
+  WHV_REGISTER_VALUE PendingInterruption;
+
+  double tsc_hz = calculate_tsc_hz();
+  uint64_t cycles_per_tick = (uint64_t)(tsc_hz / 1000.0);
+
+  EventHandle = CreateEvent(NULL, TRUE, FALSE, NULL);
+	Size = 0;
+  Res = WHvGetCapability( WHvCapabilityCodeHypervisorPresent, &CapabilityBuffer,  sizeof(CapabilityBuffer),  &Size);
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvGetCapability 0x%x\n", Res));
+	}
+	if (!CapabilityBuffer.HypervisorPresent) {
+		BX_PANIC(("Error  Hypervisor Not Present\n"));
+	}
+	Size = 0;
+	Res = WHvGetCapability(WHvCapabilityCodeFeatures, &CapabilityBuffer, sizeof(CapabilityBuffer), &Size);
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvGetCapability 0x%x\n", Res));
+	}
+
+	Size = 0;
+	Res = WHvGetCapability(WHvCapabilityCodeProcessorFeatures, &CapabilityBuffer, sizeof(CapabilityBuffer), &Size);
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvGetCapability 0x%x\n", Res));
+	}
+	
+	Res = WHvCreatePartition(&PartitionHandle);
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvCreatePartition 0x%x\n", Res));
+	}
+	WHvPartitionProperty.ProcessorCount = 1;
+	Res = WHvSetPartitionProperty(PartitionHandle, WHvPartitionPropertyCodeProcessorCount, &WHvPartitionProperty.ProcessorCount, sizeof(WHvPartitionProperty.ProcessorCount));
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvSetPartitionProperty WHvPartitionPropertyCodeProcessorCount 0x%x\n", Res));
+	}
+	WHvPartitionProperty.ExtendedVmExits.AsUINT64 = 0;
+	WHvPartitionProperty.ExtendedVmExits.X64CpuidExit = 1;
+	WHvPartitionProperty.ExtendedVmExits.X64MsrExit = 1;
+	Res = WHvSetPartitionProperty(PartitionHandle, WHvPartitionPropertyCodeExtendedVmExits, &WHvPartitionProperty.ExtendedVmExits, sizeof(WHvPartitionProperty.ExtendedVmExits));
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvSetPartitionProperty WHvPartitionPropertyCodeExtendedVmExits 0x%x\n", Res));
+	}
+	WHvPartitionProperty.ExceptionExitBitmap = 0xf7dfb;
+	Res = WHvSetPartitionProperty(PartitionHandle, WHvPartitionPropertyCodeExceptionExitBitmap, &WHvPartitionProperty.ExceptionExitBitmap, sizeof(WHvPartitionProperty.ExtendedVmExits));
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvSetPartitionProperty WHvPartitionPropertyCodeProcessorCount 0x%x\n", Res));
+	}
+	Res = WHvSetupPartition(PartitionHandle);
+	if (Res < 0) {
+		BX_PANIC(("Error in WHvSetupPartition 0x%x\n", Res));
+	}
+	
+	Res = WHvCreateVirtualProcessor(PartitionHandle, 0, 0);
+	if (Res < 0) 
+		BX_PANIC(("Error in WHvCreateVirtualProcessor 0x%x\n", Res));
+  for (i = 0; i < BX_MEM(0)->get_memory_len(); ) {
+    for (j = i; j < BX_MEM(0)->get_memory_len(); i += 0x1000) {
+      //skip mmio
+      block = bochs_get_host_page(0, i);
+      if (block)
+        break;
+    }
+    for (j = i; j < BX_MEM(0)->get_memory_len(); j += 0x1000) {
+      tmp = bochs_get_host_page(0, j);
+      if (tmp != block + j - i)
+        break;
+    }
+    Res = WHvMapGpaRange(PartitionHandle, (VOID*)bochs_get_host_page(0, i), i, j - 0x1000, WHvMapGpaRangeFlagRead | WHvMapGpaRangeFlagWrite | WHvMapGpaRangeFlagExecute);
+    if (Res < 0) 
+		  BX_PANIC(("Error in WHvMapGpaRange 0x%x\n", Res));
+    i = j;
+  }
+
+  memset(&WhvpRegisters, 0, sizeof(WhvpRegisters));
+  
+  //bochs_whvp_get_registers(0, &WhvpRegisters);
+  BX_THREAD_VAR(kicker_thread_var);
+  BX_THREAD_CREATE(kickerThreadInit, NULL, kicker_thread_var);
+  //SetEvent(EventHandle);
+  while (1) {
+    bochs_whvp_get_registers(0, &WhvpRegisters);
+    Res = WHvSetVirtualProcessorRegisters(PartitionHandle, 0, whpv_register_order, sizeof(whpv_register_order) / sizeof(whpv_register_order[0]), (const WHV_REGISTER_VALUE  *)&WhvpRegisters);
+    if (Res < 0) 
+		  BX_PANIC(("Error in WHvSetVirtualProcessorRegisters 0x%x\n", Res));
+    SetEvent(EventHandle);
+    hypervCyclesPassed = rdtsc_start();
+    Res = WHvRunVirtualProcessor(PartitionHandle, 0, &ExitContext, sizeof(ExitContext));
+    hypervCyclesPassed = rdtsc_now() - hypervCyclesPassed;
+    hypervSecondsPassed = hypervCyclesPassed / tsc_hz;
+    //ResetEvent(EventHandle);
+    if (Res < 0) 
+		  BX_PANIC(("Error in WHvRunVirtualProcessor 0x%x\n", Res));
+    Res = WHvGetVirtualProcessorRegisters(PartitionHandle, 0, whpv_register_order, sizeof(whpv_register_order) / sizeof(whpv_register_order[0]), (WHV_REGISTER_VALUE*)&WhvpRegisters);
+    if (Res < 0)
+      BX_PANIC(("Error in WHvGetVirtualProcessorRegisters 0x%x\n", Res));
+    bochs_whvp_set_registers(0, &WhvpRegisters);
+    //bochs_whvp_get_registers(0, &WhvpRegisters2);
+    /*
+    for (i = 0; i < sizeof(WhvpRegisters); i++)
+      if (((unsigned char *)&WhvpRegisters)[i] != ((unsigned char *)&WhvpRegisters2)[i]) 
+        BX_PANIC(("Error in WhvpRegisters[%d] != WhvpRegisters2[%d] 0x%x\n", i, i));
+    */
+    
+    
+    /*
+    Res = WHvSetVirtualProcessorRegisters(PartitionHandle, 0, &pendingInteruptName, 1, (WHV_REGISTER_VALUE*)&PendingInterruption);
+    if (Res < 0)
+      BX_PANIC(("Error in WHvGetVirtualProcessorRegisters 0x%x\n", Res));
+    */
+    //BX_CPU_THIS_PTR pending_event
+    
+    switch (ExitContext.ExitReason) {
+      case WHvRunVpExitReasonInvalidVpRegisterValue:
+      case WHvRunVpExitReasonUnsupportedFeature:
+      case WHvRunVpExitReasonUnrecoverableException:
+      case WHvRunVpExitReasonX64Halt:
+        BX_PANIC(("Error exit reason 0x%x\n", ExitContext.ExitReason));
+      case WHvRunVpExitReasonCanceled:
+        
+        if (BX_CPU(0)->is_pending(BX_EVENT_PENDING_INTR | BX_EVENT_PENDING_LAPIC_INTR | BX_EVENT_PENDING_UINTR) && (!BX_CPU(0)->get_IF())) {
+          memset(&PendingInterruption, 0, sizeof(PendingInterruption));
+          PendingInterruption.DeliverabilityNotifications.InterruptNotification = 1;
+          Res = WHvSetVirtualProcessorRegisters(PartitionHandle, 0, &pendingInteruptName, 1, (WHV_REGISTER_VALUE*)&PendingInterruption);
+          if (Res < 0)
+            BX_PANIC(("Error in WHvGetVirtualProcessorRegisters 0x%x\n", Res));
+        }
+        
+      default:
+      
+      if (hypervSecondsPassed)
+        BX_CPU(0)->step_device(hypervSecondsPassed * 100000000);
+      else
+        BX_CPU(0)->step_device(100000000);
+      //BX_CPU(0)->cpu_loop();
+      BX_CPU(0)->cpu_run_instruction(100000000);
+      break;
+      //case WHvRunVpExitReasonMemoryAccess:
+      //case WHvRunVpExitReasonX64IoPortAccess:
+    }
+  }
+}
+
+
 
 void bx_print_header()
 {
@@ -1506,9 +2356,20 @@ int bx_begin_simulation(int argc, char *argv[])
     else
 #endif
     {
+#if BX_SUPPORT_HYPERVISOR
+    bx_param_string_c *type = NULL;
+
+    bx_list_c* base = (bx_list_c*) SIM->get_param(BXPN_CPU_HYPERVISOR);
+    if (base)
+      type = SIM->get_param_string("type", base);
+    if (base && type && !(strcmp(type->getptr(), "hyperv"))) 
+      bx_whpx_init();
+#endif
+#if BX_SVMM_STUB
       if (bx_dbg.svmstub_enabled) {
         bx_svmmstub_init();
       }
+#endif
       if (BX_SMP_PROCESSORS == 1) {
         // only one processor, run as fast as possible by not messing with
         // quantums and loops.
@@ -1788,7 +2649,6 @@ void bx_init_hardware()
       BX_PANIC(("Failed to map bios/OVMF_VARS.fd"));
     
 #endif
-//#endif
 
 #if BX_SUPPORT_SMP == 0
   BX_CPU(0)->initialize();

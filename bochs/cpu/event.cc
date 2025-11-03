@@ -317,6 +317,7 @@ bool BX_CPU_C::handleAsyncEvent(void)
 #endif
     
     if (BX_CPU_THIS_PTR debug_trap & 0xf000) {
+#if BX_SVMM_STUB
       if (bx_dbg.svmstub_enabled) {
         if (BX_CPU_THIS_PTR dr7_shadow.val32 & 0x3ff) {
           for (Bit8u i = 0; i < 4; i++) {
@@ -354,6 +355,7 @@ bool BX_CPU_C::handleAsyncEvent(void)
           return 1;
         }
       }
+#endif
       exception(BX_DB_EXCEPTION, 0); // no error, not interrupt
     }
     else {

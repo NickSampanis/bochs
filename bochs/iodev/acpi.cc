@@ -37,6 +37,7 @@
 #include "acpi_fw_cfg.h"
 //#endif
 
+
 #define LOG_THIS theACPIController->
 
 bx_acpi_ctrl_c* theACPIController = NULL;

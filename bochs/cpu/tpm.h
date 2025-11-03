@@ -165,7 +165,7 @@ class BOCHSAPI bx_tpm2_c : public logfunctions
     uint32_t buffer_size;
     uint32_t rw_offset;
 public:
-    bx_tpm2_c(BX_CPU_C *cpu, int port);
+    bx_tpm2_c(BX_CPU_C *cpu, char *ipv4, int port);
     bool is_selected(bx_phy_address addr);
     void read(bx_phy_address addr, void *data, unsigned len);
     void write(bx_phy_address addr, void *data, unsigned len);

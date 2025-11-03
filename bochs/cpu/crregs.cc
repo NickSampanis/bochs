@@ -1624,11 +1624,13 @@ Bit32u BX_CPU_C::code_breakpoint_match(bx_address laddr)
 {
   if (BX_CPU_THIS_PTR get_RF())
     return 0;
+#if BX_SVMM_STUB
   if (bx_dbg.svmstub_enabled) {
       Bit8u mem = system_read_byte(laddr);
       if (mem == 0xcc)
         return 0xf000;
   }
+#endif
   if (BX_CPU_THIS_PTR dr7.get_bp_enabled()) {
     Bit32u dr6_bits = hwdebug_compare(laddr, 1, BX_HWDebugInstruction, BX_HWDebugInstruction);
     return dr6_bits;
@@ -1655,8 +1657,10 @@ void BX_CPU_C::hwbreakpoint_match(bx_address laddr, unsigned len, unsigned rw)
         if ((opa == BX_HWDebugMemW && BX_CPU_THIS_PTR dr7_shadow.val32 & (1ULL << (16 + i * 4)))
             || (opa == BX_HWDebugMemRW && BX_CPU_THIS_PTR dr7_shadow.val32 & (1ULL << (17 + i * 4)))) {
             BX_CPU_THIS_PTR debug_trap |= BX_DEBUG_TRAP_HIT;
+#if BX_SVMM_STUB
             if (bx_dbg.svmstub_enabled)
               BX_CPU_THIS_PTR last_accessed_addr = laddr;
+#endif
             BX_CPU_THIS_PTR async_event = 1;
         }
       }

@@ -89,7 +89,7 @@ PSOCKADDR get_local_ipv4(void)
     return addr;
 }
 
-bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu, int port)
+bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu, char *ipv4, int port)
 {
     char ipStr[INET6_ADDRSTRLEN];
     ULONG c, result;
@@ -114,15 +114,18 @@ bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu, int port)
     this->rw_offset = 0;
     this->irq_num = 13;
     this->buffer_size = TPM_TIS_BUFFER_MAX;
+    memset(ipStr, 0, sizeof(ipStr));
     
-    addr = get_local_ipv4();
-    getnameinfo(addr, sizeof(SOCKADDR), ipStr, sizeof(ipStr), NULL, 0, NI_NUMERICHOST);
-    free(addr);
-    result = TPM2Initialize((CHAR *)ipStr, port);
-    if (result) {
-        BX_ERROR(("Error in TPM2Initialize connecting to %s:%d", ipStr, port));
-        exit(-1);    
+    if (!ipv4) {
+        addr = get_local_ipv4();
+        getnameinfo(addr, sizeof(SOCKADDR), ipStr, sizeof(ipStr), NULL, 0, NI_NUMERICHOST);
+        free(addr);
     }
+    else 
+        memcpy(ipStr, ipv4, strlen(ipv4) < sizeof(ipStr) ?  strlen(ipv4) : sizeof(ipStr) - 1);
+    result = TPM2Initialize((CHAR *)ipStr, port);
+    if (result) 
+        BX_PANIC(("Error in TPM2Initialize connecting to %s:%d", ipStr, port));
 }
 
 /*

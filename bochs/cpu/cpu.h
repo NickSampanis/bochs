@@ -4485,6 +4485,8 @@ public: // for now...
 
   // now for some ancillary functions...
   BX_SMF void cpu_loop(void);
+  BX_SMF Bit64u cpu_run_instruction(Bit64u steps);
+  BX_SMF void step_device(Bit64u steps);
 #if BX_DEBUGGER
   BX_SMF void cpu_loop_debugger(void);
 #endif

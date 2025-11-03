@@ -50,6 +50,7 @@
 #define BXPN_MWAIT_IS_NOP                "cpu.mwait_is_nop"
 #define BXPN_BRAND_STRING                "cpu.brand_string"
 #define BXPN_CPU_TPM2                    "cpu.tpm2"
+#define BXPN_CPU_HYPERVISOR              "cpu.hypervisor"
 #define BXPN_MEMORY                      "memory.standard.ram"
 #define BXPN_MEM_SIZE                    "memory.standard.ram.guest"
 #define BXPN_HOST_MEM_SIZE               "memory.standard.ram.host"

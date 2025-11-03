@@ -26,6 +26,8 @@ set echo
             --enable-show-ips \
             --enable-debug \
             --disable-readline \
+            --enable-tpm2 \
+            --enable_svmm_stub \
             --without-x \
             --with-win32 --with-rfb --with-nogui
 unset echo

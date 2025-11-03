@@ -1065,6 +1065,8 @@ enable_debugger
 enable_debugger_gui
 enable_debug
 enable_gdb_stub
+enable_svmm_stub
+enable_tpm2
 enable_iodebug
 enable_all_optimizations
 enable_readline
@@ -1812,6 +1814,8 @@ Optional Features:
   --enable-fpu            compile in FPU emulation (yes)
   --enable-vmx            VMX (virtualization extensions) emulation
                           (--enable-vmx=[no|1|2])
+  --enable-svmm-stub      enable svmm debugger stub
+  --enable-tpm2           enable tpm2 with microsoft tpm simulator
   --enable-svm            SVM (AMD: secure virtual machine) emulation (no)
   --enable-protection-keys
                           User-Mode Protection Keys support (no)
@@ -23553,6 +23557,38 @@ printf "%s\n" "no" >&6; }
 
 fi
 
+bx_svmm_stub=0
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for svmm stub enable" >&5
+printf %s "checking for svmm stub enable... " >&6; }
+if test ${enable_svmm_stub+y}
+then :
+  enableval=$enable_svmm_stub; if test "$enableval" = yes; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+    printf "%s\n" "#define BX_SVMM_STUB 1" >>confdefs.h
+    bx_svmm_stub=1
+else $as_nop
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+    printf "%s\n" "#define BX_SVMM_STUB 0" >>confdefs.h
+fi
+
+bx_tpm2=0
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for tpm2 enable" >&5
+printf %s "checking for tpm2 enable... " >&6; }
+if test ${enable_tpm2+y}
+then :
+  enableval=$enable_tpm2; if test "$enableval" = yes; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+    printf "%s\n" "#define BX_SUPPORT_TPM2 1" >>confdefs.h
+    bx_tpm2=1
+else $as_nop
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+    printf "%s\n" "#define BX_SUPPORT_TPM2 0" >>confdefs.h
+fi
 
 
 

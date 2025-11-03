@@ -1,5 +1,5 @@
 select vdisk file="C:\Users\user\git\bochs_edk3\bochs\hv.vhd"
 select partition 2
 remove letter=T
-detach vhd
+detach vdisk
 exit

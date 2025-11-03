@@ -661,7 +661,21 @@ void bx_init_options()
     "TCP port for TPM2 Simulator",
     0, 65535,
     2321);
-
+  new bx_param_string_c(tpm2,
+      "ip",
+      "Ip",
+      "Ip address for TPM2 Simulator",
+      "",
+      40);
+#endif
+#if BX_SUPPORT_HYPERVISOR
+  bx_list_c *hypervisor = new bx_list_c(cpu_param, "hypervisor", "Hypervisor");
+  new bx_param_string_c(hypervisor,
+      "type",
+      "type",
+      "Type of hypervisor",
+      "",
+      40);
 #endif
   nthreads->set_enabled(BX_CPU_HT_THREADS_LIMIT > 1);
   nthreads->set_options(bx_param_c::CI_ONLY);
@@ -1681,6 +1695,8 @@ void bx_init_options()
     0, BX_MAX_BIT32U,
     0);
   enabled->set_dependent_list(menu->clone());
+//SVMM stub
+bx_list_c *svmmstub = new bx_list_c(misc, "svmmstub", "SVMM Stub Options");
 
 #if BX_PLUGINS
   // user-defined options subtree
@@ -2839,7 +2855,7 @@ static int parse_line_formatted(const char *context, int num_params, char *param
         PARSE_ERR(("%s: cpu: This model choice is no longer supported, use pre-defined CPU models", context));
       } else if (bx_parse_param_from_list(context, params[i], (bx_list_c*) SIM->get_param("cpu")) < 0) {
         PARSE_ERR(("%s: cpu directive malformed.", context));
-      }
+      }    
     }
   } else if (!strcmp(params[0], "cpuid")) {
     PARSE_ERR(("%s: cpuid: This legacy option is no longer supported, use pre-defined CPU models", context));
@@ -3134,6 +3150,7 @@ static int parse_line_formatted(const char *context, int num_params, char *param
     PARSE_ERR(("%s: Bochs is not compiled with lowlevel sound support", context));
 #endif
   }
+  #if BX_SVMM_STUB
   else if (!strcmp(params[0], "svmmstub")) {
     base = (bx_list_c*) SIM->get_param(BXPN_SVMMSTUB);
     for (i=1; i<num_params; i++) {
@@ -3148,8 +3165,12 @@ static int parse_line_formatted(const char *context, int num_params, char *param
       else if (!strncmp(params[i], "port=", 5)) {
         SIM->get_param_num("port", base)->set(atoi(&params[i][5]));
       }
+      else if (!strncmp(params[i], "ip=", 3)) {
+        SIM->get_param_string("ip", base)->set(&params[i][3]);
+      }
     }
   }
+  #endif
 #if BX_SUPPORT_TPM2
   else if (!strcmp(params[0], "tpm2")) {
     base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
@@ -3161,6 +3182,18 @@ static int parse_line_formatted(const char *context, int num_params, char *param
       else if (!strncmp(params[i], "port=", 5)) {
         SIM->get_param_num("port", base)->set(atoi(&params[i][5]));
       }
+      else if (!strncmp(params[i], "ip=", 3)) {
+        SIM->get_param_string("ip", base)->set(&params[i][3]);
+      }
+    }
+  }
+#endif
+#if BX_SUPPORT_HYPERVISOR
+  else if (!strcmp(params[0], "hypervisor")) {
+    base = (bx_list_c*) SIM->get_param(BXPN_CPU_HYPERVISOR);
+    for (i=1; i<num_params; i++) {
+      if (!strncmp(params[i], "type=", 5)) 
+        SIM->get_param_string("type", base)->set(&params[i][5]);
     }
   }
 #endif

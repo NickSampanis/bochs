@@ -292,8 +292,10 @@ extern void bx_dbg_phy_memory_access(unsigned cpu,                 bx_phy_addres
 // defines for GDB stub
 void bx_gdbstub_init(void);
 void bx_svmmstub_init(void);
+extern "C" void bx_whpx_init(void);
 void bx_gdbstub_break(void);
 int bx_gdbstub_check(Bit64u eip);
+
 #define GDBSTUB_STOP_NO_REASON   (0xac0)
 
 #if BX_SUPPORT_SMP
@@ -325,7 +327,9 @@ typedef struct {
 #if BX_DEBUG_LINUX
   bool linux_syscall;
 #endif
+#if BX_SVMM_STUB
   bool svmstub_enabled;
+#endif
 } bx_debug_t;
 
 #if BX_SHOW_IPS
