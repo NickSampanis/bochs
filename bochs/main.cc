@@ -496,6 +496,8 @@ void bx_svmmstub_init(void)
     }
   }
   else {
+#if BX_SUPPORT_SMP
+
     static int quantum = SIM->get_param_num(BXPN_SMP_QUANTUM)->get();
     Bit32u executed = 0, processor = 0;
     bool run = true;
@@ -533,6 +535,7 @@ void bx_svmmstub_init(void)
 
       BX_CPU(processor)->icount_last_sync = BX_CPU(processor)->get_icount();
     }
+#endif  
   }
 }
 
@@ -2625,10 +2628,16 @@ void bx_init_hardware()
   }
 //#ifdef QEMU_CFG_FW
   //PlatformPei + 0x1EAE returns the addr
+  /*
   BX_MEM(0)->flash_addr = 0xbff7c000;
   
   DEV_register_memory_handlers(BX_MEM(0), BX_MEM(0)->flash_read_mem, BX_MEM(0)->flash_write_mem,
                                    BX_MEM(0)->flash_addr, BX_MEM(0)->flash_addr + 0x84000 - 1);
+  */
+  BX_MEM(0)->flash_addr = 0xFFC00000L;
+  
+  DEV_register_memory_handlers(BX_MEM(0), BX_MEM(0)->flash_read_mem, BX_MEM(0)->flash_write_mem,
+                                   BX_MEM(0)->flash_addr, BX_MEM(0)->flash_addr + 0x40000 - 1);
 #ifdef WIN32
     HANDLE hFlash = CreateFileA("bios/OVMF_VARS.fd", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 
                               FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, NULL);

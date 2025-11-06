@@ -23557,31 +23557,48 @@ printf "%s\n" "no" >&6; }
 
 fi
 
-bx_svmm_stub=0
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for svmm stub enable" >&5
 printf %s "checking for svmm stub enable... " >&6; }
+# Check whether --enable-assert-checks was given.
 if test ${enable_svmm_stub+y}
 then :
   enableval=$enable_svmm_stub; if test "$enableval" = yes; then
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
     printf "%s\n" "#define BX_SVMM_STUB 1" >>confdefs.h
-    bx_svmm_stub=1
-else $as_nop
 
+   else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
     printf "%s\n" "#define BX_SVMM_STUB 0" >>confdefs.h
+
+   fi
+else $as_nop
+
+    if test "$bx_debugger" = 1; then
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+      printf "%s\n" "#define BX_SVMM_STUB 1" >>confdefs.h
+
+    else
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+      printf "%s\n" "#define BX_SVMM_STUB 0" >>confdefs.h
+
+    fi
 fi
+
 
 bx_tpm2=0
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for tpm2 enable" >&5
 printf %s "checking for tpm2 enable... " >&6; }
 if test ${enable_tpm2+y}
 then :
-  enableval=$enable_tpm2; if test "$enableval" = yes; then
+  enableval=$enable_tpm2; 
+  if test "$enableval" = yes; then
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
+  fi
     printf "%s\n" "#define BX_SUPPORT_TPM2 1" >>confdefs.h
     bx_tpm2=1
 else $as_nop
@@ -26645,7 +26662,7 @@ case "$target" in
     MAKE=nmake
     MAKELIB="lib /nologo /subsystem:console /verbose /out:\$@"
     RMCOMMAND="-del"
-    #L_OPT="/debug"    # for debugging
+    L_OPT="/debug"    # for debugging
     LINK="link $L_OPT /nologo /subsystem:console /incremental:no /out:\$@ "
     LINK_CONSOLE=$LINK
     EXE=".exe"

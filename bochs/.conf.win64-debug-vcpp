@@ -12,7 +12,6 @@ set echo
             --enable-vmx=2 \
             --enable-avx \
             --enable-evex \
-            --enable-cet \
             --enable-pci \
             --enable-clgd54xx \
             --enable-voodoo \
@@ -27,7 +26,8 @@ set echo
             --enable-debug \
             --disable-readline \
             --enable-tpm2 \
-            --enable_svmm_stub \
+            --enable-svmm_stub \
+            --enable-smp \
             --without-x \
             --with-win32 --with-rfb --with-nogui
 unset echo

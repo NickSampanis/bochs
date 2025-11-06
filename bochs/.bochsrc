@@ -1204,7 +1204,7 @@ debugger_log: -
 # WARNING: This Bochs feature is not maintained yet and may fail.
 #=======================================================================
 #gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
-#svmmstub: enabled=1
+svmmstub: enabled=1
 tpm2: enabled=1, ip=127.0.0.1, port=2321
 #hypervisor: type=hyperv
 #=======================================================================
