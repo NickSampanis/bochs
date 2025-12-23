@@ -95,8 +95,6 @@ bx_tpm2_c::bx_tpm2_c(BX_CPU_C *cpu, char *ipv4, int port)
     ULONG c, result;
     PSOCKADDR addr;
 
-    //DEV_register_memory_handlers(BX_MEM(0), BX_MEM(0)->flash_read_mem, BX_MEM(0)->flash_write_mem,
-    //                            BX_MEM(0)->flash_addr, BX_MEM(0)->flash_addr + 0x84000 - 1);
     this->active_local = TPM_TIS_NO_LOCALITY;
     this->next_locty = TPM_TIS_NO_LOCALITY;
     this->aborting_locty = TPM_TIS_NO_LOCALITY;

@@ -650,6 +650,11 @@ void bx_init_options()
       "Sets the number of HT (Intel(R) HyperThreading Technology) threads per core for multiprocessor emulation",
       1, BX_CPU_HT_THREADS_LIMIT,
       1);
+#if BX_SUPPORT_SMX
+  bx_list_c *smx = new bx_list_c(cpu_param, "smx", "Safer Mode Extension for Trusted Execution Environment");
+  enabled = new bx_param_bool_c(smx, "enabled", "Enable SMX", "", 0);
+#endif
+
 #if BX_SUPPORT_TPM2
     bx_list_c *tpm2 = new bx_list_c(cpu_param, "tpm2", "Trusted Platform Module");
 

@@ -27,6 +27,8 @@ set echo
             --disable-readline \
             --enable-tpm2 \
             --enable-svmm_stub \
+            --enable-smx \
+            --enable-vtd \
             --enable-smp \
             --without-x \
             --with-win32 --with-rfb --with-nogui

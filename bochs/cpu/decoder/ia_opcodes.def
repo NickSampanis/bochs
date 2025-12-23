@@ -1748,7 +1748,9 @@ bx_define_opcode(BX_IA_VMFUNC, "vmfunc", "vmfunc", &BX_CPU_C::BxError, &BX_CPU_C
 // VMX
 
 // SMX
+#if BX_SUPPORT_SMX
 bx_define_opcode(BX_IA_GETSEC, "getsec", "getsec", &BX_CPU_C::GETSEC, &BX_CPU_C::GETSEC, BX_ISA_SMX, OP_NONE, OP_NONE, OP_NONE, OP_NONE, BX_TRACE_END)
+#endif
 // SMX
 
 // SVM

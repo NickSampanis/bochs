@@ -477,8 +477,8 @@ unsigned long long bochs_read_physical(unsigned int processor, unsigned long lon
 void bx_svmmstub_init(void)
 {
 
-  SvmmDbgInit("50001");
-  SvmmDbgBochsInit(bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot, bochs_write_physical, bochs_read_physical);
+  SvmmDbgInit(50001, bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot, bochs_write_physical, bochs_read_physical);
+  //SvmmDbgBochsInit(bochs_set_registers, bochs_get_registers, bochs_get_host_page, bochs_flush_tlb, bochs_take_snapshot, bochs_restore_snapshot, bochs_write_physical, bochs_read_physical);
   //CreateThread(NULL, 0, SvmmDbgCheckAsyncBreakpointThread, NULL, 0, &threadID);
   BX_CPU(0)->dbgState = SvmmDbgLoop(0);
 

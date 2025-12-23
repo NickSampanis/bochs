@@ -20,8 +20,10 @@
 #define DBG_TYPE_WRITE_MSR_REGISTERS	14
 #define DBG_TYPE_STATE_CHANGE_REQ		15
 #define DBG_TYPE_STATE_CHANGE_REP       16
-
-#define DBG_MAX_PACKET_DATA_SIZE	2048
+#define DBG_TYPE_TAKE_SNAPSHOT			25
+#define DBG_TYPE_RESTORE_SNAPSHOT		26
+#define DBG_TYPE_SHOW_PTE				27
+#define DBG_MAX_PACKET_DATA_SIZE		4096
 
 
 #define EFLAGS_CF_MASK 0x00000001       // carry flag
@@ -105,6 +107,42 @@ typedef struct _DBG_PACKET_PRINT_REQUEST {
 
 __pragma(pack(pop))
 
-VOID SvmmDbgInit(PCSTR DbgCommandLine);
+#if DBG_STUB_SERVER
+__declspec(dllexport) VOID SvmmDbgInit(
+	USHORT Port,
+	void (*set_register)(unsigned int processor, struct Registers* Registers),
+	void (*get_register)(unsigned int processor, struct Registers* Registers),
+	unsigned long long (*get_host_page)(unsigned int processor, unsigned long long gpaAddress),
+	void (*flush_tlb)(unsigned int processor),
+	void (*take_snapshot)(const char* folder_name),
+	void (*restore_snapshot)(const char* folder_name),
+	unsigned long long(*write_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size),
+	unsigned long long(*read_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size)
+);
+__declspec(dllexport) BYTE SvmmDbgLoop(BYTE CpuNumber);
+__declspec(dllexport) BYTE SvmmDbgCheckAsyncBreakpoint(BYTE CpuNumber);
+#else
+#pragma comment(lib, "SvmmDebugStub.lib")  //link SvmmDebugStub.lib
+#ifdef __cplusplus
+extern "C" {
+#endif
+	__declspec(dllimport) VOID SvmmDbgInit(
+		USHORT Port,
+		void (*set_register)(unsigned int processor, struct Registers* Registers),
+		void (*get_register)(unsigned int processor, struct Registers* Registers),
+		unsigned long long (*get_host_page)(unsigned int processor, unsigned long long gpaAddress),
+		void (*flush_tlb)(unsigned int processor),
+		void (*take_snapshot)(const char* folder_name),
+		void (*restore_snapshot)(const char* folder_name),
+		unsigned long long(*write_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size),
+		unsigned long long(*read_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size)
+	);
+	__declspec(dllimport) BYTE SvmmDbgLoop(BYTE CpuNumber);
+	__declspec(dllimport) BYTE SvmmDbgCheckAsyncBreakpoint(BYTE CpuNumber);
+#ifdef __cplusplus
+};
+#endif
+
+#endif 
 LONG SvmmDbgSend(USHORT Type, BYTE* Buffer, SIZE_T Size);
 LONG SvmmDbgRecv(USHORT Type, BYTE* Buffer, SIZE_T Size);

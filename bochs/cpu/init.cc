@@ -43,7 +43,9 @@
 #if BX_SUPPORT_SVM
 #include "svm.h"
 #endif
-
+#if BX_SUPPORT_SMX
+#include "smx.h"
+#endif
 #include <stdlib.h>
 
 BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
@@ -56,6 +58,8 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
   // global variables which aren't initialized quite yet.
   char name[16], logname[16], *ipv4;
   int port;
+  bx_list_c *base;
+
   sprintf(name, "CPU%x", bx_cpuid);
   sprintf(logname, "cpu%x", bx_cpuid);
   put(logname, name);
@@ -65,14 +69,28 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
 #if BX_SUPPORT_APIC
   lapic = new bx_local_apic_c(this, bx_cpuid);
 #endif
+#if BX_SUPPORT_SMX
+  //base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
+  //if (base && SIM->get_param_bool("enabled", base)->get()) {
+  #if BX_SUPPORT_SMP
+    if (!id)
+      smx = new bx_smx_c(this);
+    else
+      smx = bx_cpu_array[0]->smx;
+  #else
+      smx = new bx_smx_c(this);
+  #endif //BX_SUPPORT_SMP
+  //}
+#else
+  smx = NULL;
+#endif //BX_SUPPORT_SMX
 #if BX_SUPPORT_TPM2
-  bx_list_c *base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
+  base = (bx_list_c*) SIM->get_param(BXPN_CPU_TPM2);
   if (base && SIM->get_param_bool("enabled", base)->get()) {
     if (SIM->get_param_num("port", base))
       port = SIM->get_param_num("port", base)->get();
     if (SIM->get_param_string("ip", base))
       ipv4 = SIM->get_param_string("ip", base)->getptr();
-
 #if BX_SUPPORT_SMP
     if (!id)
       tpm2 = new bx_tpm2_c(this, ipv4, port);
@@ -80,11 +98,11 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
       tpm2 = bx_cpu_array[0]->tpm2;
 #else
   tpm2 = new bx_tpm2_c(this, ipv4, port);
-#endif
+#endif //BX_SUPPORT_SMP
   }
   else
     tpm2 = NULL;
-#endif
+#endif //BX_SUPPORT_TPM2
   for (unsigned n=0;n<BX_ISA_EXTENSIONS_ARRAY_SIZE;n++)
     ia_extensions_bitmask[n] = 0;
 
@@ -98,7 +116,6 @@ BX_CPU_C::BX_CPU_C(unsigned id): bx_cpuid(id)
 #if BX_SUPPORT_SVM
   svm_extensions_bitmask = 0;
 #endif
-
   stats = NULL;
 
 //#ifdef QEMU_CFG_FW

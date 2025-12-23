@@ -506,7 +506,10 @@ Bit32u bx_cpuid_t::get_std_cpuid_leaf_1_ecx(Bit32u extra) const
   // [6:6]   SMX: Safer Mode Extensions for Trusted Execution Technology (TXT) - not supported
   // [7:7]   EST: Enhanced Intel SpeedStep Technology - not supported, could be enabled through extra
   // [8:8]   TM2: Thermal Monitor 2 - not supported, could be enabled through extra
-
+#if BX_SUPPORT_SMX
+  if (is_cpu_extension_supported(BX_ISA_SMX))
+   ecx |= BX_CPUID_STD1_ECX_SMX;
+#endif
   // [9:9]   SSSE3: SSSE3 Instructions
   if (is_cpu_extension_supported(BX_ISA_SSSE3))
     ecx |= BX_CPUID_STD1_ECX_SSSE3;

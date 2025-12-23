@@ -425,7 +425,7 @@ void bx_acpi_ctrl_c::init(void)
   build_fadt();
   build_rsdt();
   build_rsdp();
-  msr_feature_control = (1 << 0) | (1 << 2);
+  msr_feature_control = (1 << 0) | (1 << 2) | (1 << 15) | 0x7f00; // BX_IA32_FEATURE_CONTROL_LOCK_BIT | BX_IA32_FEATURE_CONTROL_VMX_ENABLE_BIT | IA32_FEATURE_CONTROL_MSR_ENABLE_SENTER | IA32_FEATURE_CONTROL_MSR_SENTER_PARAM_CTL
 //#endif
   BX_ACPI_THIS s.pm_base = 0x0;
   BX_ACPI_THIS s.sm_base = 0x0;

@@ -214,6 +214,7 @@ public:
   Bit8u   *flash_buffer;
   Bit64u flash_addr;
 //#endif
+
 };
 
 BOCHSAPI extern BX_MEM_C bx_mem;

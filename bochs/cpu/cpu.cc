@@ -31,7 +31,7 @@
 #include "bx_debug/debug.h"
 
 #ifdef WIN32
-#include "Svmm.h"
+#include "SvmmDbgServer.h"
 #endif
 #if BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS
 

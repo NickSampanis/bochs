@@ -32,6 +32,9 @@
 #if BX_SUPPORT_TPM2
 #include "tpm.h"
 #endif
+#if BX_SUPPORT_SMX
+#include "smx.h"
+#endif
 #if BX_SUPPORT_SVM
 #include "svm.h"
 #endif
@@ -2511,10 +2514,16 @@ bx_hostpageaddr_t BX_CPU_C::getHostMemAddr(bx_phy_address paddr, unsigned rw)
     return 0; // Vetoed!  APIC address space
 #endif
 #if BX_SUPPORT_TPM2
-if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
+  if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     return 0;
   }
 #endif
+#if BX_SUPPORT_SMX
+  if (BX_CPU_THIS_PTR smx && BX_CPU_THIS_PTR smx->is_selected(paddr)) {
+    return 0;
+  }
+#endif
+
   return (bx_hostpageaddr_t) BX_MEM(0)->getHostMemAddr(BX_CPU_THIS, paddr, rw);
 }
 
@@ -2538,6 +2547,13 @@ if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     return;
   }
 #endif
+#if BX_SUPPORT_SMX
+  if (BX_CPU_THIS_PTR smx && BX_CPU_THIS_PTR smx->is_selected(paddr)) {
+    BX_CPU_THIS_PTR smx->read(paddr, data, len);
+    return;
+  }
+#endif
+
   BX_MEM(0)->readPhysicalPage(BX_CPU_THIS, paddr, len, data);
 }
 
@@ -2594,6 +2610,13 @@ if (BX_CPU_THIS_PTR tpm2 && BX_CPU_THIS_PTR tpm2->is_selected(paddr)) {
     return;
   }
 #endif
+#if BX_SUPPORT_SMX
+  if (BX_CPU_THIS_PTR smx && BX_CPU_THIS_PTR smx->is_selected(paddr)) {
+    BX_CPU_THIS_PTR smx->write(paddr, data, len);
+    return;
+  }
+#endif
+
   BX_MEM(0)->writePhysicalPage(BX_CPU_THIS, paddr, len, data);
 }
 

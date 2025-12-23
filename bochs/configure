@@ -1066,6 +1066,8 @@ enable_debugger_gui
 enable_debug
 enable_gdb_stub
 enable_svmm_stub
+enable_smx
+enable_vtd
 enable_tpm2
 enable_iodebug
 enable_all_optimizations
@@ -1816,7 +1818,9 @@ Optional Features:
                           (--enable-vmx=[no|1|2])
   --enable-svmm-stub      enable svmm debugger stub
   --enable-tpm2           enable tpm2 with microsoft tpm simulator
+  --enable-smx            enable SMX for Trusted Execution Environment support
   --enable-svm            SVM (AMD: secure virtual machine) emulation (no)
+  --enable-vtd            enable VTD
   --enable-protection-keys
                           User-Mode Protection Keys support (no)
   --enable-cet            Control Flow Enforcement Technology support (no)
@@ -23607,7 +23611,41 @@ printf "%s\n" "no" >&6; }
     printf "%s\n" "#define BX_SUPPORT_TPM2 0" >>confdefs.h
 fi
 
+bx_smx=0
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for smx enable" >&5
+printf %s "checking for smx enable... " >&6; }
+if test ${enable_smx+y}
+then :
+  enableval=$enable_smx; 
+  if test "$enableval" = yes; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+  fi
+    printf "%s\n" "#define BX_SUPPORT_SMX 1" >>confdefs.h
+    bx_smx=1
+else $as_nop
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+    printf "%s\n" "#define BX_SUPPORT_SMX 0" >>confdefs.h
+fi
 
+bx_vtd=0
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for VTD enable" >&5
+printf %s "checking for VTD enable... " >&6; }
+if test ${enable_vtd+y}
+then :
+  enableval=$enable_vtd; 
+  if test "$enableval" = yes; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+  fi
+    printf "%s\n" "#define BX_SUPPORT_VTD 1" >>confdefs.h
+    bx_vtd=1
+else $as_nop
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+    printf "%s\n" "#define BX_SUPPORT_VTD 0" >>confdefs.h
+fi
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for I/O Interface to the debugger" >&5
 printf %s "checking for I/O Interface to the debugger... " >&6; }

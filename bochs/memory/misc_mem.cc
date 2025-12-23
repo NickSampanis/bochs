@@ -936,6 +936,8 @@ bool BX_MEM_C::flash_write_mem(bx_phy_address addr, unsigned len, void *data, vo
 
 //#endif
 
+
+
 Bit8u BX_MEM_C::flash_read(Bit32u addr)
 {
   Bit8u ret = 0;

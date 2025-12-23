@@ -393,8 +393,12 @@ class BX_MEM_C;
 class bxInstruction_c;
 class bx_local_apic_c;
 class AMX;
+#if BX_SUPPORT_TPM2
 class bx_tpm2_c;
-
+#endif
+#if BX_SUPPORT_SMX
+class bx_smx_c;
+#endif
 // <TAG-TYPE-EXECUTEPTR-START>
 #if BX_USE_CPU_SMF
 typedef void (BX_CPP_AttrRegparmN(1) *BxRepIterationPtr_tR)(bxInstruction_c *);
@@ -1096,6 +1100,9 @@ public: // for now...
 #endif
 #if BX_SUPPORT_TPM2
   bx_tpm2_c *tpm2;
+#endif
+#if BX_SUPPORT_SMX
+  bx_smx_c *smx;
 #endif
   /* SMM base register */
   Bit32u smbase;
@@ -2659,9 +2666,11 @@ public: // for now...
   /* SVM instructions */
 #endif
 
+#if BX_SUPPORT_SMX
   /* SMX instructions */
   BX_SMF void GETSEC(bxInstruction_c *) BX_CPP_AttrRegparmN(1);
   /* SMX instructions */
+#endif
 
 #if BX_CPU_LEVEL >= 6
   /* VMXx2 */

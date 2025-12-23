@@ -83,6 +83,9 @@ tigerlake_t::tigerlake_t(BX_CPU_C *cpu):
 #if BX_SUPPORT_VMX >= 2
   enable_cpu_extension(BX_ISA_VMX);
 #endif
+#if BX_SUPPORT_SMX
+  enable_cpu_extension(BX_ISA_SMX);
+#endif
   enable_cpu_extension(BX_ISA_RDTSCP);
   enable_cpu_extension(BX_ISA_XSAVE);
   enable_cpu_extension(BX_ISA_XSAVEOPT);

@@ -76,6 +76,9 @@ corei7_skylake_x_t::corei7_skylake_x_t(BX_CPU_C *cpu): bx_cpuid_t(cpu)
 #if BX_SUPPORT_VMX >= 2
   enable_cpu_extension(BX_ISA_VMX);
 #endif
+#if BX_SUPPORT_SMX
+  enable_cpu_extension(BX_ISA_SMX);
+#endif
   enable_cpu_extension(BX_ISA_RDTSCP);
   enable_cpu_extension(BX_ISA_XSAVE);
   enable_cpu_extension(BX_ISA_XSAVEOPT);
@@ -319,8 +322,8 @@ void corei7_skylake_x_t::get_std_cpuid_leaf_1(cpuid_function_t *leaf) const
                                        BX_CPUID_STD1_ECX_EST |
                                        BX_CPUID_STD1_ECX_THERMAL_MONITOR2 |
                                        BX_CPUID_STD1_ECX_xTPR |
-                                       BX_CPUID_STD1_ECX_PDCM |
-                                       BX_CPUID_STD1_ECX_SMX);
+                                       BX_CPUID_STD1_ECX_PDCM);// |
+                                       //BX_CPUID_STD1_ECX_SMX);
 
   // EDX: Standard Feature Flags
   // * [0:0]   FPU on chip

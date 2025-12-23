@@ -4113,8 +4113,16 @@ void BX_CPP_AttrRegparmN(1) BX_CPU_C::INVPCID(bxInstruction_c *i)
 
 #endif
 
+#if BX_SUPPORT_SMX
+#include "txt_config_regs.h"
+#include "smx.h"
 void BX_CPP_AttrRegparmN(1) BX_CPU_C::GETSEC(bxInstruction_c *i)
 {
+  capabilities_t capabilities;
+  acm_hdr_t *acm_hdr;
+  Bit32u acbase, acsize, dword1, dword2;
+  
+
 #if BX_CPU_LEVEL >= 6
   if (! BX_CPU_THIS_PTR cr4.get_SMXE())
     exception(BX_UD_EXCEPTION, 0);
@@ -4124,13 +4132,119 @@ void BX_CPP_AttrRegparmN(1) BX_CPU_C::GETSEC(bxInstruction_c *i)
     VMexit(VMX_VMEXIT_GETSEC, 0);
   }
 #endif
+  
 
-  BX_PANIC(("GETSEC: SMX is not implemented yet !"));
+  switch (BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RAX].rrx) {
+    case IA32_GETSEC_CAPABILITIES:
+      if (!BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RBX].rrx) {
+        capabilities._raw = 0;
+        capabilities.chipset_present = 1;
+        capabilities.senter = 1;
+        capabilities.sexit = 1;
+        capabilities.parameters = 1;
+        capabilities.smctrl = 1;
+        capabilities.wakeup = 1;
+        BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RAX].rrx = capabilities._raw;
+      }
+      else
+        BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RAX].rrx = 0;
+      break;
+    case IA32_GETSEC_ENTERACCS:
+      break;
+    case IA32_GETSEC_SENTER:
+      if (!BX_CPU_THIS_PTR cr0.get_PE() || BX_CPU_THIS_PTR cr0.get_CD() || BX_CPU_THIS_PTR cr0.get_NW() 
+        || !BX_CPU_THIS_PTR cr0.get_NE() || CPL > 0 || BX_CPU_THIS_PTR get_VM() || !BX_CPU_THIS_PTR msr.apicbase
+        || !BX_CPU_THIS_PTR smx || BX_CPU_THIS_PTR in_smm || BX_CPU_THIS_PTR in_smm_vmx || BX_CPU_THIS_PTR in_smm_vmx_guest
+        || !BX_CPU_THIS_PTR tpm2 || !(BX_CPU_THIS_PTR msr.ia32_feature_ctrl & BX_IA32_FEATURE_CONTROL_LOCK_BIT) 
+        || !(BX_CPU_THIS_PTR msr.ia32_feature_ctrl & 0x8000)) 
+          exception(BX_UD_EXCEPTION, 0);
+      //todo create ACRAM and copy ac there to avoid TOCTOU
+      acbase = BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RBX].dword.erx;
+      acsize = BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RCX].dword.erx;
+      if (acbase & 0xfff || acsize & 0x3f || (Bit64u)acbase + (Bit64u)acsize > 0xFFFFFFFFull)
+        exception(BX_UD_EXCEPTION, 0);
+      
+      TLB_flush();
+
+      //BX_CPU_THIS_PTR msrs[BX_MSR_DEBUGCTLMSR] = 0;
+#if BX_SUPPORT_VMX
+      if (BX_CPU_THIS_PTR in_vmx_guest) {
+        //TXT_SHUTDOWN
+      }
 #endif
+      acm_hdr = (acm_hdr_t *)getHostMemAddr(acbase, BX_READ);
+      //overflow checks
+      if (acm_hdr->header_len * 4 < acm_hdr->header_len || acm_hdr->header_len * 4 + acm_hdr->scratch_size < acm_hdr->header_len * 4
+        || acm_hdr->gdt_base + acm_hdr->gdt_limit < acm_hdr->gdt_base || acm_hdr->entry_point + acbase < acm_hdr->entry_point 
+        || acm_hdr->gdt_limit < 15) {
+          //TXT_SHUTDOWN("BadACMFormat");
+      }
+      //actual checks
+      if (acm_hdr->gdt_base < acm_hdr->header_len * 4 + acm_hdr->scratch_size 
+        || acm_hdr->gdt_base + acm_hdr->gdt_limit >= acsize || acm_hdr->entry_point > acsize
+        || acm_hdr->entry_point + acbase > acsize || acm_hdr->entry_point + acbase < acm_hdr->header_len * 4 + acm_hdr->scratch_size
+        || acm_hdr->seg_sel & 3 ||  acm_hdr->seg_sel & 4 || acm_hdr->seg_sel > acm_hdr->gdt_limit - 15
+        || acm_hdr->seg_sel < 8) {
+          //TXT_SHUTDOWN("BadACMFormat");
+      }
+      //TPM hash acram
+
+      //uniproc so we set TXT.STS
+      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PUBLIC].txt_status._raw = 1;
+      //dma range memory should be at least 3 MBs
+      BX_CPU_THIS_PTR smx->txt_space[TXT_AREA_PRIVATE].txt_dpr.size = 3;
+      //clear PG-AM-WP
+      BX_CPU_THIS_PTR cr0.set_PG(0);
+      BX_CPU_THIS_PTR cr0.set_AM(0);
+      BX_CPU_THIS_PTR cr0.set_WP(0);
+      
+      BX_CPU_THIS_PTR cr4.set32(0x00004000u);
+      BX_CPU_THIS_PTR eflags = 0x2;
+      BX_CPU_THIS_PTR efer.val32 = 0;
+      BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RBP].rrx = acbase;
+      BX_CPU_THIS_PTR gdtr.base = acbase + acm_hdr->gdt_base;
+      BX_CPU_THIS_PTR gdtr.limit = acm_hdr->gdt_limit;
+
+      parse_selector(acm_hdr->seg_sel, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_CS].selector);
+      fetch_raw_descriptor(&BX_CPU_THIS_PTR sregs[BX_SEG_REG_CS].selector, &dword1, &dword2, BX_GP_EXCEPTION);
+      parse_descriptor(dword1, dword2, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_CS].cache);
+
+      parse_selector(acm_hdr->seg_sel + 8, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_DS].selector);
+      fetch_raw_descriptor(&BX_CPU_THIS_PTR sregs[BX_SEG_REG_DS].selector, &dword1, &dword2, BX_GP_EXCEPTION);
+      parse_descriptor(dword1, dword2, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_DS].cache);
+
+      parse_selector(acm_hdr->seg_sel + 8, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_ES].selector);
+      fetch_raw_descriptor(&BX_CPU_THIS_PTR sregs[BX_SEG_REG_ES].selector, &dword1, &dword2, BX_GP_EXCEPTION);
+      parse_descriptor(dword1, dword2, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_ES].cache);
+
+      parse_selector(acm_hdr->seg_sel + 8, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_SS].selector);
+      fetch_raw_descriptor(&BX_CPU_THIS_PTR sregs[BX_SEG_REG_SS].selector, &dword1, &dword2, BX_GP_EXCEPTION);
+      parse_descriptor(dword1, dword2, &BX_CPU_THIS_PTR sregs[BX_SEG_REG_SS].cache);
+      BX_CPU_THIS_PTR dr7.set32(0x400);
+      BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RIP].rrx = acm_hdr->entry_point + acbase;
+      BX_CPU_THIS_PTR prev_rip = gen_reg[BX_64BIT_REG_RIP].rrx;
+
+      //BX_SET_ENABLE_A20(0);
+      break;
+    case IA32_GETSEC_SEXIT:
+      break;
+    case IA32_GETSEC_PARAMETERS:
+      BX_CPU_THIS_PTR gen_reg[BX_64BIT_REG_RAX].rrx = 3;
+      break;
+    case IA32_GETSEC_SMCTRL:
+      break;
+    case IA32_GETSEC_WAKEUP:
+      break;
+    default:
+      exception(BX_UD_EXCEPTION, 0);
+      break;
+  }
+  //BX_PANIC(("GETSEC: SMX is not implemented yet !"));
+#endif //BX_CPU_LEVEL >= 6
 
   BX_NEXT_TRACE(i);
 }
-
+#endif //BX_SUPPORT_SMX
 #if BX_SUPPORT_VMX
 void BX_CPU_C::register_vmx_state(bx_param_c *parent)
 {

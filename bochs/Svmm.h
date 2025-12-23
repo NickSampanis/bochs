@@ -2,8 +2,8 @@
 #include <Windows.h>
 #include <stdint.h>
 
-#define BOCHS 1
-//#define GVM 1
+//#define BOCHS 1
+#define GVM 1
 #define ALIGNED(x) __declspec(align(x))
 #define PACKED ALIGNED(1)
 
@@ -15,6 +15,54 @@
 #define CR0_PG						(1ULL << 31)
 #define EFER_LME					(1 << 8)
 #define CR4_PAE						(1 << 5)
+
+#define CPU_MODE_REAL			0
+#define CPU_MODE_PROTECTED		1
+#define CPU_MODE_LONG_MODE		2
+
+#define GB (1024ULL * 1024ULL * 1024ULL)
+#define MB (1024ULL * 1024ULL)
+#define BIOSROMSZ		(1 << 21)    /* 2M BIOS ROM @0xffe00000, must be a power of 2 */
+#define EXROMSIZE		(0x20000)    /* ROMs 0xc0000-0xdffff (area 0xe0000-0xfffff=bios mapped) */
+#define PAGE_SIZE		0x1000
+#define SMM_RAM_SIZE	0x20000
+#define ROM_SIZE		(BIOSROMSZ + EXROMSIZE)
+#define BIOS_MASK		(BIOSROMSZ - 1)
+#define EXROM_MASK		(EXROMSIZE - 1)
+#define TYPE_SYSTEM_BIOS  0
+#define TYPE_VGA_BIOS	  1	
+
+#define ROM_ADDR_BIOS	  0x00000
+#define ROM_ADDR_VGA	  0xc0000
+
+#define EVENT_NMI                          (1 <<  0)
+#define EVENT_SMI                          (1 <<  1)
+#define EVENT_INIT                         (1 <<  2)
+#define EVENT_CODE_BREAKPOINT_ASSIST       (1 <<  3)
+#define EVENT_VMX_MONITOR_TRAP_FLAG        (1 <<  4)
+#define EVENT_VMX_PREEMPTION_TIMER_EXPIRED (1 <<  5)
+#define EVENT_VMX_INTERRUPT_WINDOW_EXITING (1 <<  6)
+#define EVENT_VMX_VIRTUAL_NMI              (1 <<  7)
+#define EVENT_SVM_VIRQ_PENDING             (1 <<  8)
+#define EVENT_PENDING_VMX_VIRTUAL_INTR     (1 <<  9)
+#define EVENT_PENDING_INTR                 (1 << 10)
+#define EVENT_PENDING_LAPIC_INTR           (1 << 11)
+#define EVENT_VMX_VTPR_UPDATE              (1 << 12)
+#define EVENT_VMX_VEOI_UPDATE              (1 << 13)
+#define EVENT_VMX_VIRTUAL_APIC_WRITE       (1 << 14)
+#define EVENT_DMA						   (1 << 15)
+
+
+#define BX_CR3_PAGING_MASK			0x000ffffffffff000ULL
+#define PAGING_MASK					0x000ffffffffff000ULL
+#define PAGE_1GB_ENABLED			(1 << 7)
+#define PAGE_2MB_ENABLED			(1 << 7)
+
+#define CR0_PG						(1ULL << 31)
+#define EFER_LME					(1 << 8)
+#define CR4_PAE						(1 << 5)
+
+#define EFLAGS_IF					(1 << 9)
 
 
 #define EFLAGS_IF					(1 << 9)
@@ -220,6 +268,7 @@ struct ALIGNED(16) fx_layout {
     uint8_t   mmx_2[8][16];
     uint8_t   pad[96];
 };
+__pragma(pack(push, 1))
 
 typedef struct _HOST_STATE
 {
@@ -263,6 +312,7 @@ typedef struct _GUEST_STATE
     uint64_t pdptr[4];
     */
 } GUEST_STATE;
+__pragma(pack(pop))
 
 struct Registers {
     struct vcpu_state_t context;
@@ -289,19 +339,12 @@ struct Registers {
     uint64_t last_accessed_addr;
     uint8_t cpu_number;
 };
-extern "C" VOID SvmmDbgInit(PCSTR DbgCommandLine);
-extern "C" VOID SvmmDbgBochsInit(void (*set_register)(unsigned int processor, struct Registers* Registers),
-    void (*get_register)(unsigned int processor, struct Registers* Registers),
-    unsigned long long (*get_host_page)(unsigned int processor, unsigned long long gpaAddress),
-    void (*flush_tlb)(unsigned int processor),
-    void (*take_snapshot)(const char* folder_name),
-    void (*bochs_restore_snapshot)(const char* folder_name),
-    unsigned long long(*write_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size),
-    unsigned long long(*read_physical)(unsigned int processor, unsigned long long gpaAddress, unsigned char* data, unsigned long long size)
 
-);
-extern "C" BYTE SvmmDbgLoop(BYTE CpuNumber);
-extern "C" BYTE SvmmDbgCheckAsyncBreakpoint(BYTE CpuNumber);
-//extern "C" __declspec(dllimport) BYTE SvmmDbgLoop();
-//extern "C" __declspec(dllimport) BYTE SvmmDbgCheckAsyncBreakpoint(void);
 
+
+/*
+NTSTATUS SvmmGetRegisters(BYTE CpuNumber, struct Registers* Registers);
+NTSTATUS SvmmSetRegisters(BYTE CpuNumber, struct Registers* Registers);
+//BYTE* SvmmGetHostAddress(ULONG64 GuestAddress);
+BYTE* SvmmGetHostPageFromGPA(BYTE CpuNumber, ULONG64 gpaAddress);
+*/

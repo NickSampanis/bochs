@@ -25,6 +25,8 @@ set echo
             --enable-show-ips \
             --enable-tpm2 \
             --enable-svmm-stub \
+            --enable-smx \
+            --enable-vtd \
             --enable-smp \
             --disable-readline \
             --without-x \

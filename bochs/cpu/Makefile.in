@@ -81,6 +81,7 @@ OBJS = \
 	soft_int.o \
 	apic.o \
 	tpm.o \
+	smx.o \
 	bcd.o \
 	mult16.o \
 	tasking.o \
@@ -228,6 +229,15 @@ tpm.o: tpm.@CPP_SUFFIX@ ../bochs.h ../config.h ../osdep.h ../logio.h \
  fpu/status_w.h fpu/control_w.h crregs.h descriptor.h decoder/instr.h \
  lazy_flags.h tlb.h icache.h xmm.h vmx.h vmx_ctrls.h stack.h access.h \
  tpm.h scalar_arith.h ../iodev/iodev.h ../plugin.h ../extplugin.h \
+ ../param_names.h ../pc_system.h ../memory/memory-bochs.h \
+ ../gui/siminterface.h ../gui/paramtree.h ../gui/gui.h
+smx.o: smx.@CPP_SUFFIX@ ../bochs.h ../config.h ../osdep.h ../logio.h \
+ ../misc/bswap.h cpu.h decoder/decoder.h decoder/features.h \
+ ../instrument/stubs/instrument.h i387.h \
+ softfloat3e/include/softfloat_types.h ../config.h fpu/tag_w.h \
+ fpu/status_w.h fpu/control_w.h crregs.h descriptor.h decoder/instr.h \
+ lazy_flags.h tlb.h icache.h xmm.h vmx.h vmx_ctrls.h stack.h access.h \
+ smx.h scalar_arith.h ../iodev/iodev.h ../plugin.h ../extplugin.h \
  ../param_names.h ../pc_system.h ../memory/memory-bochs.h \
  ../gui/siminterface.h ../gui/paramtree.h ../gui/gui.h
 arith16.o: arith16.@CPP_SUFFIX@ ../bochs.h ../config.h ../osdep.h ../logio.h \

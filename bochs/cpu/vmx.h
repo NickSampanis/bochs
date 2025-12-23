@@ -1073,7 +1073,7 @@ const Bit32u VMX_MSR_VMX_VMENTRY_CTRLS_LO = 0x000011FF;
 // -----------------
 
 //   [4:0] - TSC:VMX_PREEMPTION_TIMER ratio
-//     [5] - VMEXITs store the value of EFER.LMA into the “x86-64 guest"
+//     [5] - VMEXITs store the value of EFER.LMA into the ï¿½x86-64 guest"
 //           VMENTRY control (must set to '1 if 'unrestricted guest' is supported)
 //     [6] - support VMENTER to HLT state
 //     [7] - support VMENTER to SHUTDOWN state
