@@ -23604,10 +23604,16 @@ if test "$bx_svmm_stub" = 1; then
   else
     as_fn_error $? "svmm stub enabled but SvmmDebugStub submodule not found. Run: git submodule update --init --recursive (or configure without --enable-svmm-stub)" "$LINENO" 5
   fi
-  # SvmmDebugStub.lib is named by #pragma comment(lib) in the header; we only
-  # supply the search path. Both output dirs are added so either the Release
-  # or Debug build of the .sln is picked up (link.exe ignores a missing dir).
-  LDFLAGS="$LDFLAGS /LIBPATH:SvmmDebugStub\\x64\\Release /LIBPATH:SvmmDebugStub\\x64\\Debug"
+  # The /LIBPATH: for SvmmDebugStub.lib is appended to the MSVC link command
+  # (LINK) in the win64 vcpp branch below: the non-plugin link rule uses @LINK@
+  # directly and never references $(LDFLAGS), so LDFLAGS would have no effect.
+  # Copy the runtime DLL next to bochs.exe (import lib needs its DLL at runtime).
+  for _cfg in Release Debug; do
+    if test -f "$srcdir/SvmmDebugStub/x64/$_cfg/SvmmDebugStub.dll"; then
+      cp -f "$srcdir/SvmmDebugStub/x64/$_cfg/SvmmDebugStub.dll" "$srcdir/"
+      break
+    fi
+  done
 fi
 
 
@@ -23627,6 +23633,27 @@ else $as_nop
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
     printf "%s\n" "#define BX_SUPPORT_TPM2 0" >>confdefs.h
+fi
+
+if test "$bx_tpm2" = 1; then
+  # Copy the tssClient header from the TPM2Simulator submodule into the bochs
+  # tree. cpu/tpm.cc does #include <tssClient.h>, resolved via -I.. (bochs root).
+  if test -f "$srcdir/TPM2Simulator/tssClient/tssClient/tssClient.h"; then
+    cp -f "$srcdir/TPM2Simulator/tssClient/tssClient/tssClient.h" "$srcdir/tssClient.h"
+  else
+    as_fn_error $? "tpm2 enabled but TPM2Simulator submodule not found. Run: git submodule update --init --recursive (or configure without --enable-tpm2)" "$LINENO" 5
+  fi
+  # The /LIBPATH: for tssClient.lib is appended to the MSVC link command (LINK)
+  # in the win64 vcpp branch below (the non-plugin link rule ignores $(LDFLAGS)).
+  # Copy tssClient.dll and its tpm2-tss runtime DLLs (tss2-*.dll) next to
+  # bochs.exe. Try Release then Debug; tssClient.dll loads the tss2-* DLLs.
+  for _cfg in Release Debug; do
+    if test -f "$srcdir/TPM2Simulator/tssClient/x64/$_cfg/tssClient.dll"; then
+      cp -f "$srcdir/TPM2Simulator/tssClient/x64/$_cfg/tssClient.dll" "$srcdir/"
+      cp -f "$srcdir/TPM2Simulator/tssClient/x64/$_cfg/"tss2-*.dll "$srcdir/"
+      break
+    fi
+  done
 fi
 
 bx_smx=0
@@ -26722,6 +26749,19 @@ case "$target" in
     L_OPT="/debug"    # for debugging
     LINK="link $L_OPT /nologo /subsystem:console /incremental:no /out:\$@ "
     LINK_CONSOLE=$LINK
+    if test "$bx_svmm_stub" = 1; then
+      # SvmmDebugStub.lib is pulled in by #pragma comment(lib) in SvmmDbgServer.h;
+      # the linker only needs its search path. Add both .sln output dirs (Release
+      # first, then Debug); link ignores a /LIBPATH that does not exist.
+      LINK="$LINK /LIBPATH:SvmmDebugStub${SLASH}x64${SLASH}Release /LIBPATH:SvmmDebugStub${SLASH}x64${SLASH}Debug"
+    fi
+    if test "$bx_tpm2" = 1; then
+      # Link tssClient.lib explicitly rather than relying on the #pragma
+      # comment(lib) in tpm.cc: that directive lives in a libcpu.a member and
+      # does not reliably survive into the final link. Add the search path from
+      # the TPM2Simulator submodule (Release first, then Debug).
+      LINK="$LINK /LIBPATH:TPM2Simulator${SLASH}tssClient${SLASH}x64${SLASH}Release /LIBPATH:TPM2Simulator${SLASH}tssClient${SLASH}x64${SLASH}Debug tssClient.lib"
+    fi
     EXE=".exe"
     PRIMARY_TARGET="bochs.exe"
     BXIMAGE_LINK_OPTS="user32.lib"

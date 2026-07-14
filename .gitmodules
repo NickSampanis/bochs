@@ -1,3 +1,6 @@
 [submodule "bochs/SvmmDebugStub"]
 	path = bochs/SvmmDebugStub
 	url = https://github.com/NickSampanis/SvmmDebugStub.git
+[submodule "bochs/TPM2Simulator"]
+	path = bochs/TPM2Simulator
+	url = https://github.com/NickSampanis/TPM2Simulator.git

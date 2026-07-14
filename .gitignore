@@ -13,6 +13,12 @@ bochs-msvc-src.zip
 # /bochs/
 # Copied from the SvmmDebugStub submodule by configure when --enable-svmm-stub is set
 /bochs/SvmmDbgServer.h
+# Copied from the TPM2Simulator submodule by configure when --enable-tpm2 is set
+/bochs/tssClient.h
+# Runtime DLLs copied next to bochs.exe by configure (from the submodules)
+/bochs/SvmmDebugStub.dll
+/bochs/tssClient.dll
+/bochs/tss2-*.dll
 /bochs/Makefile
 /bochs/bochs
 /bochs/bochs.exe
