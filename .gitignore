@@ -11,6 +11,8 @@ obj-release/
 bochs-msvc-src.zip
 
 # /bochs/
+# Copied from the SvmmDebugStub submodule by configure when --enable-svmm-stub is set
+/bochs/SvmmDbgServer.h
 /bochs/Makefile
 /bochs/bochs
 /bochs/bochs.exe
