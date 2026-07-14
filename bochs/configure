@@ -23602,8 +23602,7 @@ if test "$bx_svmm_stub" = 1; then
   if test -f "$srcdir/SvmmDebugStub/SvmmDebugStub/SvmmDbgServer.h"; then
     cp -f "$srcdir/SvmmDebugStub/SvmmDebugStub/SvmmDbgServer.h" "$srcdir/SvmmDbgServer.h"
   else
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: SvmmDebugStub submodule header not found; run: git submodule update --init --recursive" >&5
-printf "%s\n" "$as_me: WARNING: SvmmDebugStub submodule header not found; run: git submodule update --init --recursive" >&2;}
+    as_fn_error $? "svmm stub enabled but SvmmDebugStub submodule not found. Run: git submodule update --init --recursive (or configure without --enable-svmm-stub)" "$LINENO" 5
   fi
   # SvmmDebugStub.lib is named by #pragma comment(lib) in the header; we only
   # supply the search path. Both output dirs are added so either the Release
