@@ -1,0 +1,3 @@
+[submodule "bochs/SvmmDebugStub"]
+	path = bochs/SvmmDebugStub
+	url = https://github.com/NickSampanis/SvmmDebugStub.git
