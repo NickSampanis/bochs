@@ -30,7 +30,7 @@
 
 #include "bx_debug/debug.h"
 
-#ifdef WIN32
+#if defined(WIN32) && BX_SVMM_STUB
 #include "SvmmDbgServer.h"
 #endif
 #if BX_SUPPORT_HANDLERS_CHAINING_SPEEDUPS

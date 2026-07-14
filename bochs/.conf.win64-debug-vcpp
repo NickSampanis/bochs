@@ -26,7 +26,7 @@ set echo
             --enable-debug \
             --disable-readline \
             --enable-tpm2 \
-            --enable-svmm_stub \
+            --enable-svmm-stub \
             --enable-smx \
             --enable-vtd \
             --enable-smp \

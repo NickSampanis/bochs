@@ -23561,6 +23561,7 @@ printf "%s\n" "no" >&6; }
 
 fi
 
+bx_svmm_stub=0
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for svmm stub enable" >&5
 printf %s "checking for svmm stub enable... " >&6; }
 # Check whether --enable-assert-checks was given.
@@ -23571,6 +23572,7 @@ then :
 printf "%s\n" "yes" >&6; }
     printf "%s\n" "#define BX_SVMM_STUB 1" >>confdefs.h
 
+    bx_svmm_stub=1
    else
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
@@ -23584,12 +23586,29 @@ else $as_nop
 printf "%s\n" "yes" >&6; }
       printf "%s\n" "#define BX_SVMM_STUB 1" >>confdefs.h
 
+      bx_svmm_stub=1
     else
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
       printf "%s\n" "#define BX_SVMM_STUB 0" >>confdefs.h
 
     fi
+fi
+
+if test "$bx_svmm_stub" = 1; then
+  # Make the SvmmDebugStub submodule header visible to the bochs tree.
+  # bochs root is already on every subdir's include path (-I..), so both
+  # main.cc and cpu/cpu.cc resolve "SvmmDbgServer.h" once it lives here.
+  if test -f "$srcdir/SvmmDebugStub/SvmmDebugStub/SvmmDbgServer.h"; then
+    cp -f "$srcdir/SvmmDebugStub/SvmmDebugStub/SvmmDbgServer.h" "$srcdir/SvmmDbgServer.h"
+  else
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: SvmmDebugStub submodule header not found; run: git submodule update --init --recursive" >&5
+printf "%s\n" "$as_me: WARNING: SvmmDebugStub submodule header not found; run: git submodule update --init --recursive" >&2;}
+  fi
+  # SvmmDebugStub.lib is named by #pragma comment(lib) in the header; we only
+  # supply the search path. Both output dirs are added so either the Release
+  # or Debug build of the .sln is picked up (link.exe ignores a missing dir).
+  LDFLAGS="$LDFLAGS /LIBPATH:SvmmDebugStub\\x64\\Release /LIBPATH:SvmmDebugStub\\x64\\Debug"
 fi
 
 

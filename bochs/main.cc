@@ -109,6 +109,8 @@ char *bochsrc_filename = NULL;
 #include <sys/mman.h>
 #endif
 #ifdef WIN32
+#if BX_SVMM_STUB
+
 #include <intrin.h>
 #include "bxthread.h"
 #include "Svmm.h"
@@ -1177,7 +1179,7 @@ void bochs_whvp_set_registers(unsigned int processor, struct _whvp_registers* Re
 #endif
 }
 #endif
-
+#endif
 size_t bx_get_timestamp(char *buffer)
 {
 #if VER_DEVFLAG == 1
